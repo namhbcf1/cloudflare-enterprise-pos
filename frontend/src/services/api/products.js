@@ -1,0 +1,1 @@
+// products.js - Products API client 

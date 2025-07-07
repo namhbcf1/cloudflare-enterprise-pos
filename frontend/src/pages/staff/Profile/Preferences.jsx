@@ -1,0 +1,1 @@
+// Preferences.jsx - Tùy chọn cá nhân 

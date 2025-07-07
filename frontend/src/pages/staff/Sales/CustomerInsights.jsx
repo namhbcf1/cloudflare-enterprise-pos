@@ -1,0 +1,1 @@
+// CustomerInsights.jsx - Thông tin khách hàng 

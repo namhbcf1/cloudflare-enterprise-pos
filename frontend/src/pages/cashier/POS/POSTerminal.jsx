@@ -1,0 +1,1 @@
+// POSTerminal.jsx - Terminal chính 

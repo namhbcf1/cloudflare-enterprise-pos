@@ -1,0 +1,1 @@
+// Footer/index.jsx - Footer component 

@@ -1,0 +1,1 @@
+// TrainingCenter.jsx - Trung tâm đào tạo 

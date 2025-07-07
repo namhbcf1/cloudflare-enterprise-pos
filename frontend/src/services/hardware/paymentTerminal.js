@@ -1,0 +1,1 @@
+// paymentTerminal.js - Terminal thanh toán 

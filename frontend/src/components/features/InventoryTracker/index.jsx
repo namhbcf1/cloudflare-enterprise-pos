@@ -1,0 +1,1 @@
+// InventoryTracker/index.jsx - Theo dõi tồn kho real-time 

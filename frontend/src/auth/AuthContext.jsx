@@ -1,0 +1,1 @@
+// AuthContext.jsx - Context xác thực toàn cục 

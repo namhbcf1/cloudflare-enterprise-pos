@@ -1,0 +1,1 @@
+// barcodeScanner.js - Máy quét mã vạch 

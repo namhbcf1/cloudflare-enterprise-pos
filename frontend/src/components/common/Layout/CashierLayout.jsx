@@ -1,0 +1,1 @@
+// CashierLayout.jsx - Layout cho Thu ngân 

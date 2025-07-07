@@ -1,0 +1,1 @@
+// encryption.js - Mã hóa 
