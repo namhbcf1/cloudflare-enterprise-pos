@@ -455,7 +455,6 @@ export default {
     }
   }
 };
-
 /**
  * Helper functions for scheduled tasks
  */
