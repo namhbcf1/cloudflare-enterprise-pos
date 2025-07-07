@@ -1,502 +1,501 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { AuthContext } from '../contexts/AuthContext';
-import {
-  Row,
-  Col,
-  Card,
-  Statistic,
-  Typography,
-  Space,
-  Button,
-  Alert,
-  Progress,
-  Avatar,
-  List,
-  Tag,
-  Divider,
-  Timeline,
-  Badge
-} from 'antd';
-import {
-  DollarOutlined,
-  ShoppingCartOutlined,
-  UserOutlined,
-  TrophyOutlined,
-  RiseOutlined,
-  FallOutlined,
-  ClockCircleOutlined,
-  BellOutlined,
-  TeamOutlined,
-  ProductOutlined,
-  BarChartOutlined,
-  RightOutlined
-} from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
-import LoadingSpinner from '../components/Common/LoadingSpinner';
-import api from '../services/api';
+/**
+ * ENTERPRISE POS SYSTEM CONSTANTS
+ * Các hằng số và cấu hình cho hệ thống POS
+ */
 
-const { Title, Text } = Typography;
-
-const Dashboard = () => {
-  const { user } = useContext(AuthContext);
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [dashboardData, setDashboardData] = useState({
-    stats: {},
-    recentOrders: [],
-    notifications: [],
-    topProducts: [],
-    staffPerformance: [],
-    quickActions: []
-  });
-
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
-    try {
-      setLoading(true);
-      
-      // Fetch dashboard data based on user role
-      const endpoints = {
-        admin: [
-          'analytics/overview',
-          'orders/recent',
-          'products/top-selling',
-          'staff/performance',
-          'notifications'
-        ],
-        manager: [
-          'analytics/overview',
-          'orders/recent', 
-          'products/top-selling',
-          'staff/performance'
-        ],
-        cashier: [
-          'orders/my-orders',
-          'products/popular',
-          'staff/my-performance'
-        ],
-        staff: [
-          'orders/my-orders',
-          'staff/my-performance'
-        ]
-      };
-
-      const userEndpoints = endpoints[user.role] || endpoints.staff;
-      const promises = userEndpoints.map(endpoint => 
-        api.get(`/${endpoint}`).catch(err => ({ error: err.message }))
-      );
-
-      const results = await Promise.all(promises);
-
-      setDashboardData({
-        stats: results[0]?.data || getMockStats(),
-        recentOrders: results[1]?.data || getMockOrders(),
-        topProducts: results[2]?.data || getMockProducts(),
-        staffPerformance: results[3]?.data || getMockStaff(),
-        notifications: results[4]?.data || getMockNotifications(),
-        quickActions: getQuickActions(user.role)
-      });
-
-    } catch (error) {
-      console.error('Dashboard loading error:', error);
-      // Load mock data on error
-      setDashboardData({
-        stats: getMockStats(),
-        recentOrders: getMockOrders(),
-        topProducts: getMockProducts(),
-        staffPerformance: getMockStaff(),
-        notifications: getMockNotifications(),
-        quickActions: getQuickActions(user.role)
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getMockStats = () => ({
-    todayRevenue: 15420.50,
-    todayOrders: 127,
-    totalCustomers: 1834,
-    averageOrderValue: 121.42,
-    revenueGrowth: 12.5,
-    ordersGrowth: 8.3,
-    customersGrowth: 15.2,
-    conversionRate: 4.2
-  });
-
-  const getMockOrders = () => [
-    { id: 'ORD-2024-001', customer: 'John Doe', amount: 89.50, status: 'completed', time: '2 minutes ago' },
-    { id: 'ORD-2024-002', customer: 'Jane Smith', amount: 156.25, status: 'processing', time: '5 minutes ago' },
-    { id: 'ORD-2024-003', customer: 'Mike Johnson', amount: 75.00, status: 'completed', time: '8 minutes ago' },
-    { id: 'ORD-2024-004', customer: 'Sarah Wilson', amount: 203.75, status: 'pending', time: '12 minutes ago' },
-    { id: 'ORD-2024-005', customer: 'David Brown', amount: 95.30, status: 'completed', time: '15 minutes ago' }
-  ];
-
-  const getMockProducts = () => [
-    { name: 'Premium Coffee Blend', sales: 156, revenue: 2340, growth: 15 },
-    { name: 'Organic Green Tea', sales: 134, revenue: 1876, growth: 23 },
-    { name: 'Artisan Pastries', sales: 98, revenue: 1470, growth: -5 },
-    { name: 'Fresh Sandwiches', sales: 87, revenue: 1305, growth: 8 },
-    { name: 'Energy Drinks', sales: 76, revenue: 912, growth: 31 }
-  ];
-
-  const getMockStaff = () => [
-    { name: 'Alice Johnson', role: 'Cashier', score: 94, orders: 45, badges: 3 },
-    { name: 'Bob Smith', role: 'Staff', score: 87, orders: 38, badges: 2 },
-    { name: 'Carol Davis', role: 'Cashier', score: 91, orders: 42, badges: 4 },
-    { name: 'David Wilson', role: 'Staff', score: 82, orders: 35, badges: 1 }
-  ];
-
-  const getMockNotifications = () => [
-    { id: 1, type: 'info', message: 'Low stock alert: Premium Coffee Blend (5 units left)', time: '10 minutes ago' },
-    { id: 2, type: 'success', message: 'Daily sales target achieved!', time: '2 hours ago' },
-    { id: 3, type: 'warning', message: 'Staff training reminder for this week', time: '4 hours ago' },
-    { id: 4, type: 'info', message: 'New customer loyalty program launched', time: '1 day ago' }
-  ];
-
-  const getQuickActions = (role) => {
-    const actions = {
-      admin: [
-        { title: 'View Analytics', icon: BarChartOutlined, path: '/analytics', color: '#1890ff' },
-        { title: 'Manage Products', icon: ProductOutlined, path: '/products', color: '#52c41a' },
-        { title: 'Staff Management', icon: TeamOutlined, path: '/staff', color: '#722ed1' },
-        { title: 'POS Terminal', icon: ShoppingCartOutlined, path: '/pos', color: '#fa541c' }
-      ],
-      manager: [
-        { title: 'POS Terminal', icon: ShoppingCartOutlined, path: '/pos', color: '#fa541c' },
-        { title: 'Manage Products', icon: ProductOutlined, path: '/products', color: '#52c41a' },
-        { title: 'View Reports', icon: BarChartOutlined, path: '/analytics', color: '#1890ff' },
-        { title: 'Staff Performance', icon: TeamOutlined, path: '/staff', color: '#722ed1' }
-      ],
-      cashier: [
-        { title: 'POS Terminal', icon: ShoppingCartOutlined, path: '/pos', color: '#fa541c' },
-        { title: 'Order History', icon: ClockCircleOutlined, path: '/orders', color: '#1890ff' },
-        { title: 'Customer Lookup', icon: UserOutlined, path: '/customers', color: '#52c41a' },
-        { title: 'My Performance', icon: TrophyOutlined, path: '/staff', color: '#722ed1' }
-      ],
-      staff: [
-        { title: 'POS Terminal', icon: ShoppingCartOutlined, path: '/pos', color: '#fa541c' },
-        { title: 'My Orders', icon: ClockCircleOutlined, path: '/orders', color: '#1890ff' },
-        { title: 'My Performance', icon: TrophyOutlined, path: '/staff', color: '#722ed1' }
-      ]
-    };
-    return actions[role] || actions.staff;
-  };
-
-  const getStatusColor = (status) => {
-    const colors = {
-      completed: 'green',
-      processing: 'blue',
-      pending: 'orange',
-      cancelled: 'red'
-    };
-    return colors[status] || 'default';
-  };
-
-  if (loading) {
-    return <LoadingSpinner tip="Loading dashboard..." />;
+// ================================
+// API CONFIGURATION
+// ================================
+export const API_CONFIG = {
+  BASE_URL: import.meta.env.VITE_API_URL || 'https://your-worker.your-subdomain.workers.dev',
+  TIMEOUT: 30000, // 30 seconds
+  RETRY_ATTEMPTS: 3,
+  RETRY_DELAY: 1000, // 1 second
+  
+  ENDPOINTS: {
+    // Authentication
+    LOGIN: '/api/auth/login',
+    LOGOUT: '/api/auth/logout',
+    REFRESH: '/api/auth/refresh',
+    PROFILE: '/api/auth/profile',
+    
+    // Products
+    PRODUCTS: '/api/products',
+    PRODUCT_CATEGORIES: '/api/products/categories',
+    PRODUCT_SEARCH: '/api/products/search',
+    PRODUCT_BARCODE: '/api/products/barcode',
+    
+    // Orders
+    ORDERS: '/api/orders',
+    ORDER_PROCESS: '/api/orders/process',
+    ORDER_VOID: '/api/orders/void',
+    ORDER_REFUND: '/api/orders/refund',
+    
+    // Customers
+    CUSTOMERS: '/api/customers',
+    CUSTOMER_LOYALTY: '/api/customers/loyalty',
+    CUSTOMER_HISTORY: '/api/customers/history',
+    
+    // Staff & HR
+    STAFF: '/api/staff',
+    STAFF_PERFORMANCE: '/api/staff/performance',
+    STAFF_GAMIFICATION: '/api/staff/gamification',
+    STAFF_SCHEDULE: '/api/staff/schedule',
+    
+    // Analytics
+    ANALYTICS: '/api/analytics',
+    REPORTS: '/api/analytics/reports',
+    DASHBOARD: '/api/analytics/dashboard',
+    
+    // AI Services
+    AI_RECOMMENDATIONS: '/api/ai/recommendations',
+    AI_FORECASTING: '/api/ai/forecasting',
+    AI_PRICING: '/api/ai/pricing',
+    
+    // System
+    SETTINGS: '/api/settings',
+    INTEGRATIONS: '/api/integrations',
+    WEBSOCKET: '/ws'
   }
-
-  const { stats, recentOrders, topProducts, staffPerformance, notifications, quickActions } = dashboardData;
-
-  return (
-    <div>
-      {/* Welcome Header */}
-      <div style={{ marginBottom: 24 }}>
-        <Title level={2}>
-          Welcome back, {user?.name || user?.email}! 👋
-        </Title>
-        <Text type="secondary">
-          Here's what's happening with your business today.
-        </Text>
-      </div>
-
-      {/* Key Metrics */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Today's Revenue"
-              value={stats.todayRevenue}
-              precision={2}
-              prefix={<DollarOutlined />}
-              suffix={
-                <Tag color={stats.revenueGrowth > 0 ? 'green' : 'red'} style={{ marginLeft: 8 }}>
-                  {stats.revenueGrowth > 0 ? <RiseOutlined /> : <FallOutlined />}
-                  {Math.abs(stats.revenueGrowth)}%
-                </Tag>
-              }
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Orders Today"
-              value={stats.todayOrders}
-              prefix={<ShoppingCartOutlined />}
-              suffix={
-                <Tag color={stats.ordersGrowth > 0 ? 'green' : 'red'} style={{ marginLeft: 8 }}>
-                  {stats.ordersGrowth > 0 ? <RiseOutlined /> : <FallOutlined />}
-                  {Math.abs(stats.ordersGrowth)}%
-                </Tag>
-              }
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Total Customers"
-              value={stats.totalCustomers}
-              prefix={<UserOutlined />}
-              suffix={
-                <Tag color="blue" style={{ marginLeft: 8 }}>
-                  +{stats.customersGrowth}%
-                </Tag>
-              }
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Avg Order Value"
-              value={stats.averageOrderValue}
-              precision={2}
-              prefix={<DollarOutlined />}
-              suffix={
-                <Tag color="purple" style={{ marginLeft: 8 }}>
-                  {stats.conversionRate}% conv.
-                </Tag>
-              }
-            />
-          </Card>
-        </Col>
-      </Row>
-
-      <Row gutter={[16, 16]}>
-        {/* Quick Actions */}
-        <Col xs={24} lg={8}>
-          <Card title="Quick Actions" size="small">
-            <Row gutter={[8, 8]}>
-              {quickActions.map((action, index) => (
-                <Col span={12} key={index}>
-                  <Button
-                    block
-                    size="large"
-                    style={{
-                      height: '60px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderColor: action.color,
-                      color: action.color
-                    }}
-                    onClick={() => navigate(action.path)}
-                  >
-                    <action.icon style={{ fontSize: '18px', marginBottom: '4px' }} />
-                    <span style={{ fontSize: '12px' }}>{action.title}</span>
-                  </Button>
-                </Col>
-              ))}
-            </Row>
-          </Card>
-
-          {/* Notifications */}
-          <Card 
-            title={
-              <Space>
-                <BellOutlined />
-                Notifications
-                <Badge count={notifications.length} size="small" />
-              </Space>
-            } 
-            style={{ marginTop: 16 }}
-            size="small"
-          >
-            <List
-              size="small"
-              dataSource={notifications}
-              renderItem={(item) => (
-                <List.Item>
-                  <List.Item.Meta
-                    description={
-                      <div>
-                        <Text style={{ fontSize: '12px' }}>{item.message}</Text>
-                        <br />
-                        <Text type="secondary" style={{ fontSize: '11px' }}>
-                          {item.time}
-                        </Text>
-                      </div>
-                    }
-                  />
-                </List.Item>
-              )}
-            />
-          </Card>
-        </Col>
-
-        {/* Recent Orders */}
-        <Col xs={24} lg={8}>
-          <Card 
-            title="Recent Orders" 
-            size="small"
-            extra={
-              <Button type="link" size="small" onClick={() => navigate('/orders')}>
-                View All <RightOutlined />
-              </Button>
-            }
-          >
-            <List
-              size="small"
-              dataSource={recentOrders}
-              renderItem={(order) => (
-                <List.Item>
-                  <List.Item.Meta
-                    title={
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Text strong>{order.id}</Text>
-                        <Tag color={getStatusColor(order.status)}>
-                          {order.status.toUpperCase()}
-                        </Tag>
-                      </div>
-                    }
-                    description={
-                      <div>
-                        <Text>{order.customer}</Text>
-                        <br />
-                        <Space>
-                          <Text strong>${order.amount}</Text>
-                          <Text type="secondary" style={{ fontSize: '11px' }}>
-                            {order.time}
-                          </Text>
-                        </Space>
-                      </div>
-                    }
-                  />
-                </List.Item>
-              )}
-            />
-          </Card>
-        </Col>
-
-        {/* Performance & Analytics */}
-        <Col xs={24} lg={8}>
-          {/* Top Products */}
-          <Card 
-            title="Top Products Today" 
-            size="small"
-            extra={
-              <Button type="link" size="small" onClick={() => navigate('/products')}>
-                View All <RightOutlined />
-              </Button>
-            }
-          >
-            <List
-              size="small"
-              dataSource={topProducts}
-              renderItem={(product) => (
-                <List.Item>
-                  <List.Item.Meta
-                    title={
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Text>{product.name}</Text>
-                        <Tag color={product.growth > 0 ? 'green' : 'red'}>
-                          {product.growth > 0 ? '+' : ''}{product.growth}%
-                        </Tag>
-                      </div>
-                    }
-                    description={
-                      <Space>
-                        <Text type="secondary">{product.sales} sales</Text>
-                        <Text strong>${product.revenue}</Text>
-                      </Space>
-                    }
-                  />
-                </List.Item>
-              )}
-            />
-          </Card>
-
-          {/* Staff Performance */}
-          {(user.role === 'admin' || user.role === 'manager') && (
-            <Card 
-              title="Staff Performance" 
-              style={{ marginTop: 16 }}
-              size="small"
-              extra={
-                <Button type="link" size="small" onClick={() => navigate('/staff')}>
-                  View All <RightOutlined />
-                </Button>
-              }
-            >
-              <List
-                size="small"
-                dataSource={staffPerformance}
-                renderItem={(staff) => (
-                  <List.Item>
-                    <List.Item.Meta
-                      avatar={<Avatar icon={<UserOutlined />} />}
-                      title={
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Text>{staff.name}</Text>
-                          <Space>
-                            <Tag>{staff.role}</Tag>
-                            <Badge count={staff.badges} showZero color="gold" />
-                          </Space>
-                        </div>
-                      }
-                      description={
-                        <div>
-                          <Progress 
-                            percent={staff.score} 
-                            size="small" 
-                            format={() => `${staff.score}%`}
-                          />
-                          <Text type="secondary" style={{ fontSize: '11px' }}>
-                            {staff.orders} orders today
-                          </Text>
-                        </div>
-                      }
-                    />
-                  </List.Item>
-                )}
-              />
-            </Card>
-          )}
-        </Col>
-      </Row>
-    </div>
-  );
 };
 
-export default Dashboard;
+// ================================
+// ROLE DEFINITIONS
+// ================================
+export const USER_ROLES = {
+  SUPER_ADMIN: 'super_admin',
+  ADMIN: 'admin',
+  MANAGER: 'manager',
+  SHIFT_SUPERVISOR: 'shift_supervisor',
+  CASHIER: 'cashier',
+  SALES_STAFF: 'sales_staff',
+  INVENTORY_STAFF: 'inventory_staff',
+  CUSTOMER_SERVICE: 'customer_service',
+  TRAINEE: 'trainee'
+};
 
-/*
-📁 FILE PATH: frontend/src/pages/Dashboard.jsx
+export const ROLE_HIERARCHY = [
+  USER_ROLES.SUPER_ADMIN,
+  USER_ROLES.ADMIN,
+  USER_ROLES.MANAGER,
+  USER_ROLES.SHIFT_SUPERVISOR,
+  USER_ROLES.CASHIER,
+  USER_ROLES.SALES_STAFF,
+  USER_ROLES.INVENTORY_STAFF,
+  USER_ROLES.CUSTOMER_SERVICE,
+  USER_ROLES.TRAINEE
+];
 
-📋 DESCRIPTION:
-Main dashboard page showing real-time business metrics, recent activity,
-staff performance, and role-based quick actions for Enterprise POS.
+export const ROLE_DISPLAY_NAMES = {
+  [USER_ROLES.SUPER_ADMIN]: 'Siêu Quản Trị',
+  [USER_ROLES.ADMIN]: 'Quản Trị Viên',
+  [USER_ROLES.MANAGER]: 'Quản Lý',
+  [USER_ROLES.SHIFT_SUPERVISOR]: 'Trưởng Ca',
+  [USER_ROLES.CASHIER]: 'Thu Ngân',
+  [USER_ROLES.SALES_STAFF]: 'Nhân Viên Bán Hàng',
+  [USER_ROLES.INVENTORY_STAFF]: 'Nhân Viên Kho',
+  [USER_ROLES.CUSTOMER_SERVICE]: 'Chăm Sóc Khách Hàng',
+  [USER_ROLES.TRAINEE]: 'Thực Tập Sinh'
+};
 
-🔧 FEATURES:
-- Real-time business metrics with growth indicators
-- Role-based dashboard content (Admin/Manager/Cashier/Staff)
-- Recent orders and top products display
-- Staff performance tracking with gamification
-- Quick action buttons for common tasks
-- Responsive design for all screen sizes
-- Live notifications and alerts
-- Mock data fallback for offline/demo mode
+// ================================
+// POS CONSTANTS
+// ================================
+export const POS_CONFIG = {
+  // Payment methods
+  PAYMENT_METHODS: {
+    CASH: 'cash',
+    CARD: 'card',
+    MOBILE: 'mobile',
+    TRANSFER: 'transfer',
+    LOYALTY_POINTS: 'loyalty_points',
+    VOUCHER: 'voucher'
+  },
+  
+  // Order status
+  ORDER_STATUS: {
+    PENDING: 'pending',
+    PROCESSING: 'processing',
+    COMPLETED: 'completed',
+    CANCELLED: 'cancelled',
+    REFUNDED: 'refunded',
+    PARTIAL_REFUND: 'partial_refund'
+  },
+  
+  // Transaction types
+  TRANSACTION_TYPES: {
+    SALE: 'sale',
+    REFUND: 'refund',
+    VOID: 'void',
+    NO_SALE: 'no_sale',
+    CASH_IN: 'cash_in',
+    CASH_OUT: 'cash_out'
+  },
+  
+  // Discount types
+  DISCOUNT_TYPES: {
+    PERCENTAGE: 'percentage',
+    FIXED_AMOUNT: 'fixed_amount',
+    BUY_X_GET_Y: 'buy_x_get_y',
+    LOYALTY_DISCOUNT: 'loyalty_discount'
+  }
+};
 
-🎯 INTEGRATION:
-- Connects to backend analytics APIs
-- Uses AuthContext for role-based content
-- Integrates with all major POS modules
-- Mobile-optimized for tablet POS use
-*/
+export const PAYMENT_METHOD_LABELS = {
+  [POS_CONFIG.PAYMENT_METHODS.CASH]: 'Tiền mặt',
+  [POS_CONFIG.PAYMENT_METHODS.CARD]: 'Thẻ tín dụng/ghi nợ',
+  [POS_CONFIG.PAYMENT_METHODS.MOBILE]: 'Ví điện tử',
+  [POS_CONFIG.PAYMENT_METHODS.TRANSFER]: 'Chuyển khoản',
+  [POS_CONFIG.PAYMENT_METHODS.LOYALTY_POINTS]: 'Điểm tích lũy',
+  [POS_CONFIG.PAYMENT_METHODS.VOUCHER]: 'Phiếu quà tặng'
+};
+
+// ================================
+// PRODUCT CONSTANTS
+// ================================
+export const PRODUCT_CONFIG = {
+  // Product status
+  STATUS: {
+    ACTIVE: 'active',
+    INACTIVE: 'inactive',
+    DISCONTINUED: 'discontinued',
+    OUT_OF_STOCK: 'out_of_stock'
+  },
+  
+  // Product types
+  TYPES: {
+    SIMPLE: 'simple',
+    VARIABLE: 'variable',
+    BUNDLE: 'bundle',
+    DIGITAL: 'digital',
+    SERVICE: 'service'
+  },
+  
+  // Tax classes
+  TAX_CLASSES: {
+    STANDARD: 'standard',
+    REDUCED: 'reduced',
+    ZERO: 'zero',
+    EXEMPT: 'exempt'
+  },
+  
+  // Stock status
+  STOCK_STATUS: {
+    IN_STOCK: 'in_stock',
+    LOW_STOCK: 'low_stock',
+    OUT_OF_STOCK: 'out_of_stock',
+    BACKORDER: 'backorder'
+  }
+};
+
+// ================================
+// GAMIFICATION CONSTANTS
+// ================================
+export const GAMIFICATION_CONFIG = {
+  // Achievement types
+  ACHIEVEMENT_TYPES: {
+    SALES_MILESTONE: 'sales_milestone',
+    CUSTOMER_SERVICE: 'customer_service',
+    PERFECT_ATTENDANCE: 'perfect_attendance',
+    TRAINING_COMPLETION: 'training_completion',
+    TEAM_COLLABORATION: 'team_collaboration',
+    SPECIAL_EVENT: 'special_event'
+  },
+  
+  // Badge rarity
+  BADGE_RARITY: {
+    COMMON: 'common',
+    UNCOMMON: 'uncommon',
+    RARE: 'rare',
+    EPIC: 'epic',
+    LEGENDARY: 'legendary'
+  },
+  
+  // Challenge types
+  CHALLENGE_TYPES: {
+    DAILY: 'daily',
+    WEEKLY: 'weekly',
+    MONTHLY: 'monthly',
+    SEASONAL: 'seasonal',
+    SPECIAL: 'special'
+  },
+  
+  // Point multipliers
+  POINT_MULTIPLIERS: {
+    SALE_COMPLETED: 10,
+    CUSTOMER_FEEDBACK: 25,
+    UPSELL_SUCCESS: 15,
+    PERFECT_DAY: 100,
+    TRAINING_COMPLETED: 50
+  }
+};
+
+// ================================
+// UI CONSTANTS
+// ================================
+export const UI_CONFIG = {
+  // Pagination
+  PAGINATION: {
+    DEFAULT_PAGE_SIZE: 20,
+    PAGE_SIZE_OPTIONS: [10, 20, 50, 100],
+    MAX_PAGE_SIZE: 100
+  },
+  
+  // Date formats
+  DATE_FORMATS: {
+    SHORT: 'dd/MM/yyyy',
+    LONG: 'dd/MM/yyyy HH:mm:ss',
+    TIME_ONLY: 'HH:mm:ss',
+    MONTH_YEAR: 'MM/yyyy'
+  },
+  
+  // Currency format
+  CURRENCY: {
+    CODE: 'VND',
+    SYMBOL: '₫',
+    LOCALE: 'vi-VN',
+    DECIMAL_PLACES: 0
+  },
+  
+  // Theme colors
+  THEME_COLORS: {
+    PRIMARY: '#4F46E5',
+    SECONDARY: '#10B981',
+    SUCCESS: '#059669',
+    WARNING: '#D97706',
+    ERROR: '#DC2626',
+    INFO: '#2563EB'
+  },
+  
+  // Animation durations
+  ANIMATION_DURATION: {
+    FAST: 150,
+    NORMAL: 300,
+    SLOW: 500
+  }
+};
+
+// ================================
+// VALIDATION RULES
+// ================================
+export const VALIDATION_RULES = {
+  // Password requirements
+  PASSWORD: {
+    MIN_LENGTH: 8,
+    REQUIRE_UPPERCASE: true,
+    REQUIRE_LOWERCASE: true,
+    REQUIRE_NUMBERS: true,
+    REQUIRE_SPECIAL_CHARS: false
+  },
+  
+  // Product validation
+  PRODUCT: {
+    NAME_MAX_LENGTH: 255,
+    DESCRIPTION_MAX_LENGTH: 1000,
+    SKU_MAX_LENGTH: 50,
+    BARCODE_MAX_LENGTH: 50,
+    MIN_PRICE: 0,
+    MAX_PRICE: 999999999
+  },
+  
+  // Customer validation
+  CUSTOMER: {
+    NAME_MAX_LENGTH: 100,
+    EMAIL_MAX_LENGTH: 255,
+    PHONE_MAX_LENGTH: 20,
+    ADDRESS_MAX_LENGTH: 500
+  },
+  
+  // Order validation
+  ORDER: {
+    MIN_ITEMS: 1,
+    MAX_ITEMS: 100,
+    MAX_DISCOUNT_PERCENT: 100,
+    MIN_TOTAL: 0
+  }
+};
+
+// ================================
+// BUSINESS RULES
+// ================================
+export const BUSINESS_RULES = {
+  // Refund rules
+  REFUNDS: {
+    ALLOWED_DAYS: 30,
+    REQUIRE_RECEIPT: true,
+    MANAGER_APPROVAL_THRESHOLD: 1000000, // 1M VND
+    RESTOCKING_FEE_PERCENT: 0
+  },
+  
+  // Discount rules
+  DISCOUNTS: {
+    MAX_EMPLOYEE_DISCOUNT: 10, // 10%
+    MAX_MANAGER_DISCOUNT: 50,  // 50%
+    REQUIRE_REASON_ABOVE: 20,  // 20%
+    LOYALTY_DISCOUNT_MAX: 15   // 15%
+  },
+  
+  // Inventory rules
+  INVENTORY: {
+    LOW_STOCK_THRESHOLD: 10,
+    CRITICAL_STOCK_THRESHOLD: 5,
+    AUTO_REORDER_ENABLED: true,
+    SAFETY_STOCK_DAYS: 7
+  },
+  
+  // Cash management
+  CASH_MANAGEMENT: {
+    MAX_CASH_DRAWER: 5000000, // 5M VND
+    VARIANCE_THRESHOLD: 50000, // 50K VND
+    REQUIRE_MANAGER_APPROVAL: true,
+    FLOAT_AMOUNT: 500000 // 500K VND
+  },
+  
+  // Working hours
+  WORKING_HOURS: {
+    SHIFT_MIN_HOURS: 4,
+    SHIFT_MAX_HOURS: 12,
+    BREAK_DURATION: 30, // minutes
+    OVERTIME_THRESHOLD: 8 // hours
+  }
+};
+
+// ================================
+// NOTIFICATION TYPES
+// ================================
+export const NOTIFICATION_TYPES = {
+  SUCCESS: 'success',
+  ERROR: 'error',
+  WARNING: 'warning',
+  INFO: 'info',
+  
+  // System notifications
+  SYSTEM_UPDATE: 'system_update',
+  BACKUP_COMPLETE: 'backup_complete',
+  SYNC_ERROR: 'sync_error',
+  
+  // Business notifications
+  LOW_STOCK: 'low_stock',
+  NEW_ORDER: 'new_order',
+  SHIFT_END_REMINDER: 'shift_end_reminder',
+  TARGET_ACHIEVED: 'target_achieved',
+  
+  // Gamification notifications
+  ACHIEVEMENT_UNLOCKED: 'achievement_unlocked',
+  LEVEL_UP: 'level_up',
+  CHALLENGE_COMPLETED: 'challenge_completed',
+  LEADERBOARD_UPDATE: 'leaderboard_update'
+};
+
+// ================================
+// LOCAL STORAGE KEYS
+// ================================
+export const STORAGE_KEYS = {
+  AUTH_TOKEN: 'authToken',
+  REFRESH_TOKEN: 'refreshToken',
+  USER_DATA: 'userData',
+  USER_PREFERENCES: 'userPreferences',
+  CART_DATA: 'cartData',
+  OFFLINE_ORDERS: 'offlineOrders',
+  LAST_SYNC: 'lastSync',
+  THEME: 'theme',
+  LANGUAGE: 'language',
+  SIDEBAR_COLLAPSED: 'sidebarCollapsed'
+};
+
+// ================================
+// ERROR CODES
+// ================================
+export const ERROR_CODES = {
+  // Authentication errors
+  INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
+  TOKEN_EXPIRED: 'TOKEN_EXPIRED',
+  INSUFFICIENT_PERMISSIONS: 'INSUFFICIENT_PERMISSIONS',
+  
+  // Business logic errors
+  INSUFFICIENT_STOCK: 'INSUFFICIENT_STOCK',
+  INVALID_DISCOUNT: 'INVALID_DISCOUNT',
+  PAYMENT_FAILED: 'PAYMENT_FAILED',
+  
+  // System errors
+  NETWORK_ERROR: 'NETWORK_ERROR',
+  SERVER_ERROR: 'SERVER_ERROR',
+  VALIDATION_ERROR: 'VALIDATION_ERROR',
+  NOT_FOUND: 'NOT_FOUND'
+};
+
+// ================================
+// WEBSOCKET EVENTS
+// ================================
+export const WEBSOCKET_EVENTS = {
+  // Connection events
+  CONNECT: 'connect',
+  DISCONNECT: 'disconnect',
+  RECONNECT: 'reconnect',
+  
+  // Real-time updates
+  ORDER_UPDATE: 'order_update',
+  INVENTORY_UPDATE: 'inventory_update',
+  STAFF_UPDATE: 'staff_update',
+  CUSTOMER_UPDATE: 'customer_update',
+  
+  // Notifications
+  NOTIFICATION: 'notification',
+  BROADCAST: 'broadcast',
+  
+  // System events
+  SYSTEM_MAINTENANCE: 'system_maintenance',
+  FORCE_LOGOUT: 'force_logout'
+};
+
+// ================================
+// FEATURE FLAGS
+// ================================
+export const FEATURE_FLAGS = {
+  GAMIFICATION: 'gamification',
+  AI_RECOMMENDATIONS: 'ai_recommendations',
+  ADVANCED_ANALYTICS: 'advanced_analytics',
+  MULTI_STORE: 'multi_store',
+  ECOMMERCE_SYNC: 'ecommerce_sync',
+  LOYALTY_PROGRAM: 'loyalty_program',
+  MOBILE_POS: 'mobile_pos',
+  VOICE_COMMANDS: 'voice_commands',
+  FACIAL_RECOGNITION: 'facial_recognition',
+  BLOCKCHAIN_RECEIPTS: 'blockchain_receipts'
+};
+
+// ================================
+// DEFAULT VALUES
+// ================================
+export const DEFAULT_VALUES = {
+  CURRENCY: 'VND',
+  LANGUAGE: 'vi',
+  TIMEZONE: 'Asia/Ho_Chi_Minh',
+  DATE_FORMAT: 'dd/MM/yyyy',
+  PAGE_SIZE: 20,
+  THEME: 'light',
+  NOTIFICATION_DURATION: 5000
+};
+
+// ================================
+// EXPORT ALL
+// ================================
+export default {
+  API_CONFIG,
+  USER_ROLES,
+  ROLE_HIERARCHY,
+  ROLE_DISPLAY_NAMES,
+  POS_CONFIG,
+  PAYMENT_METHOD_LABELS,
+  PRODUCT_CONFIG,
+  GAMIFICATION_CONFIG,
+  UI_CONFIG,
+  VALIDATION_RULES,
+  BUSINESS_RULES,
+  NOTIFICATION_TYPES,
+  STORAGE_KEYS,
+  ERROR_CODES,
+  WEBSOCKET_EVENTS,
+  FEATURE_FLAGS,
+  DEFAULT_VALUES
+};
