@@ -1,0 +1,49 @@
+{
+  "name": "cloudflare-enterprise-pos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Enterprise POS System built with Cloudflare Stack - Admin/Cashier/Staff with Gamification & AI",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "setup": "chmod +x scripts/setup.sh && ./scripts/setup.sh",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "build": "npm run build --workspaces",
+    "deploy": "chmod +x scripts/deploy-all.sh && ./scripts/deploy-all.sh",
+    "migrate": "cd backend && npm run migrate",
+    "seed": "cd backend && npm run seed",
+    "test": "npm run test --workspaces",
+    "clean": "rm -rf node_modules backend/node_modules frontend/node_modules",
+    "postinstall": "echo '✅ Enterprise POS setup complete! Run npm run setup to initialize.'"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "keywords": [
+    "pos",
+    "point-of-sale",
+    "cloudflare",
+    "react",
+    "enterprise",
+    "gamification",
+    "ai",
+    "workers",
+    "d1",
+    "kv",
+    "r2"
+  ],
+  "author": "Your Company",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/cloudflare-enterprise-pos"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

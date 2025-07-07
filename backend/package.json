@@ -1,0 +1,60 @@
+{
+  "name": "cloudflare-pos-backend",
+  "version": "1.0.0",
+  "description": "Enterprise POS Backend - Cloudflare Workers with D1, KV, R2, AI",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --local",
+    "dev:remote": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:staging": "wrangler deploy --env staging",
+    "migrate": "wrangler d1 migrations apply enterprise-pos-db",
+    "migrate:local": "wrangler d1 migrations apply enterprise-pos-db --local",
+    "migrate:staging": "wrangler d1 migrations apply enterprise-pos-db --env staging",
+    "seed": "wrangler d1 execute enterprise-pos-db --file=./migrations/0017_seed_initial_data.sql",
+    "seed:local": "wrangler d1 execute enterprise-pos-db --local --file=./migrations/0017_seed_initial_data.sql",
+    "db:create": "wrangler d1 create enterprise-pos-db",
+    "db:backup": "wrangler d1 export enterprise-pos-db --output backup.sql",
+    "db:restore": "wrangler d1 execute enterprise-pos-db --file=backup.sql",
+    "kv:create": "wrangler kv:namespace create CACHE",
+    "r2:create": "wrangler r2 bucket create enterprise-pos-files",
+    "logs": "wrangler tail",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "lint": "eslint src",
+    "format": "prettier --write src"
+  },
+  "dependencies": {
+    "hono": "^3.12.8",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "@cloudflare/ai": "^1.0.40",
+    "date-fns": "^2.30.0",
+    "zod": "^3.22.4",
+    "uuid": "^9.0.1",
+    "lodash": "^4.17.21"
+  },
+  "devDependencies": {
+    "wrangler": "^3.24.0",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/uuid": "^9.0.7",
+    "@types/lodash": "^4.14.202",
+    "vitest": "^1.0.4",
+    "eslint": "^8.55.0",
+    "prettier": "^3.1.1"
+  },
+  "keywords": [
+    "cloudflare",
+    "workers",
+    "pos",
+    "d1",
+    "kv",
+    "r2",
+    "ai",
+    "hono"
+  ],
+  "author": "Your Company",
+  "license": "MIT"
+}

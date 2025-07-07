@@ -1,0 +1,1 @@
+-- Create staff table for employee management 

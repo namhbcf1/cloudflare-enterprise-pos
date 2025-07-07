@@ -1,0 +1,1 @@
+// Main App component with routing and providers 

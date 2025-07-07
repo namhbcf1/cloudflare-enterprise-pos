@@ -1,0 +1,1 @@
+// Detail modal component
