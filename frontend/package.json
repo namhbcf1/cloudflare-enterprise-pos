@@ -1,37 +1,39 @@
 ﻿{
   "name": "cloudflare-enterprise-pos-frontend",
-  "private": true,
   "version": "2.0.0",
+  "description": "Enterprise POS System Frontend on Cloudflare Pages",
+  "private": true,
   "type": "module",
-  "engines": {
-    "node": "18.17.0",
-    "npm": ">=8.0.0"
-  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "deploy": "npm run build",
-    "lint": "eslint src --ext .js,.jsx,.ts,.tsx --fix",
-    "test": "echo \"No tests specified\" && exit 0"
+    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "antd": "^5.15.0",
-    "react-router-dom": "^6.8.0",
-    "@ant-design/icons": "^5.2.0",
-    "dayjs": "^1.11.0",
-    "axios": "^1.6.0"
+    "react-router-dom": "^6.28.0",
+    "antd": "^5.22.2",
+    "@ant-design/icons": "^5.5.1",
+    "recharts": "^2.13.3",
+    "dayjs": "^1.11.13",
+    "lodash": "^4.17.21",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@types/react": "^18.2.43",
-    "@types/react-dom": "^18.2.17",
-    "@vitejs/plugin-react": "^4.2.1",
-    "vite": "^5.1.0",
-    "typescript": "^5.2.2",
-    "eslint": "^8.56.0",
-    "eslint-plugin-react": "^7.33.2",
-    "eslint-plugin-react-hooks": "^4.6.0"
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "vite": "^5.4.10",
+    "vite-plugin-pwa": "^0.20.5",
+    "eslint": "^8.57.1",
+    "eslint-plugin-react": "^7.37.2",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "eslint-plugin-react-refresh": "^0.4.14"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
   }
 }
