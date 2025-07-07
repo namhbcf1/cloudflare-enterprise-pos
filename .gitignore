@@ -40,7 +40,6 @@ wrangler.toml.bak
 .Trashes
 ehthumbs.db
 Thumbs.db
-
 # Logs
 logs/
 *.log

@@ -1,0 +1,1 @@
+// useAuth.js - Authentication hook 
