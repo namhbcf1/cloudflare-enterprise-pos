@@ -8,11 +8,11 @@ import 'antd/dist/reset.css'
 import './styles/global.css'
 import './styles/animations.css'
 
-// PWA registration
-import { registerSW } from 'virtual:pwa-register'
+// PWA registration (disabled)
+// import { registerSW } from 'virtual:pwa-register'
 
-// Performance monitoring
-import { getCLS, getFID, getFCP, getLCP, getTTFB } from 'web-vitals'
+// Performance monitoring (disabled)
+// import { getCLS, getFID, getFCP, getLCP, getTTFB } from 'web-vitals'
 
 // Error reporting
 window.addEventListener('error', (event) => {
@@ -25,7 +25,8 @@ window.addEventListener('unhandledrejection', (event) => {
   // In production, you might want to send this to an error tracking service
 })
 
-// PWA Service Worker Registration
+// PWA Service Worker Registration (disabled)
+/*
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   const updateSW = registerSW({
     onNeedRefresh() {
@@ -49,6 +50,7 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
     }
   })
 }
+*/
 
 // Web Vitals Performance Monitoring
 function sendToAnalytics(metric) {
@@ -66,12 +68,14 @@ function sendToAnalytics(metric) {
   // }
 }
 
-// Measure and report Web Vitals
+// Measure and report Web Vitals (disabled)
+/*
 getCLS(sendToAnalytics)
 getFID(sendToAnalytics)
 getFCP(sendToAnalytics)
 getLCP(sendToAnalytics)
 getTTFB(sendToAnalytics)
+*/
 
 // Theme Detection and Management
 function initializeTheme() {

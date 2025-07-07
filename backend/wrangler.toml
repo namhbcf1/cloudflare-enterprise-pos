@@ -1,6 +1,6 @@
 name = "enterprise-pos-backend"
 main = "src/index.js"
-compatibility_date = "2024-01-01"
+compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
 [env.production]
@@ -13,19 +13,17 @@ name = "enterprise-pos-backend-staging"
 [[d1_databases]]
 binding = "DB"
 database_name = "enterprise-pos-db"
-database_id = "your-database-id-here"
+database_id = "aecff177-2deb-4bda-834a-17e4b750441d"
 
 # KV Store Configuration
 [[kv_namespaces]]
 binding = "CACHE"
-id = "your-kv-namespace-id"
-preview_id = "your-preview-kv-namespace-id"
+id = "46b31b2c6ca449aaa3114d0ebb4fe645"
 
-# R2 Storage Configuration
-[[r2_buckets]]
-binding = "STORAGE"
-bucket_name = "enterprise-pos-files"
-preview_bucket_name = "enterprise-pos-files-preview"
+# R2 Storage Configuration (Enable R2 in Cloudflare Dashboard first)
+# [[r2_buckets]]
+# binding = "STORAGE"
+# bucket_name = "enterprise-pos-files"
 
 # AI Binding Configuration
 [ai]
@@ -42,11 +40,6 @@ API_VERSION = "v1"
 MAX_FILE_SIZE = "10485760"
 SESSION_TIMEOUT = "86400"
 
-# WebSocket Configuration
-[websocket]
-max_connections = 1000
-
-# Rate Limiting
+# Limits Configuration
 [limits]
 cpu_ms = 30000
-memory_mb = 128
