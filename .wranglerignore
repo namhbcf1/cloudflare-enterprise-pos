@@ -1,0 +1,36 @@
+# .wranglerignore
+# Ignore wrangler.toml for Pages deployment
+
+wrangler.toml
+*/wrangler.toml
+frontend/wrangler.toml
+backend/wrangler.toml
+
+# Other files to ignore
+node_modules/
+.git/
+*.log
+.env*
+.DS_Store
+Thumbs.db
+
+# Build outputs
+dist/
+build/
+.next/
+.nuxt/
+
+# Cache directories
+.cache/
+.vite/
+.turbo/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db 
