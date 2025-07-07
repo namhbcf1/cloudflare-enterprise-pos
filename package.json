@@ -66,9 +66,6 @@
     "clean": "rm -rf node_modules frontend/node_modules backend/node_modules frontend/dist backend/dist",
     "clean:cache": "npm cache clean --force",
     
-    "postinstall": "husky install",
-    "prepare": "husky install",
-    
     "docs:dev": "cd docs && npm run dev",
     "docs:build": "cd docs && npm run build",
     
@@ -81,7 +78,6 @@
     "security:audit": "npm audit --recursive",
     "security:fix": "npm audit fix --recursive",
     
-    "performance:test": "lighthouse-ci autorun",
     "performance:analyze": "npm run build && bundlesize"
   },
   "devDependencies": {
@@ -92,8 +88,7 @@
     "husky": "^8.0.3",
     "lint-staged": "^15.2.0",
     "prettier": "^3.1.1",
-    "bundlesize": "^0.18.2",
-    "lighthouse-ci": "^0.12.0"
+    "bundlesize": "^0.18.2"
   },
   "dependencies": {
     "dotenv": "^16.3.1"

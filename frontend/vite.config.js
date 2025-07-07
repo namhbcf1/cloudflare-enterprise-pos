@@ -15,6 +15,9 @@ export default defineConfig({
       }
     }
   },
+  css: {
+    postcss: false
+  },
   server: {
     port: 3000
   }
