@@ -1,1 +1,0 @@
-// PerformanceHistory.jsx - Lịch sử hiệu suất 

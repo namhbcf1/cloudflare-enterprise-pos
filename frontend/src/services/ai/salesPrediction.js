@@ -1,1 +1,0 @@
-// salesPrediction.js - Dự đoán bán hàng 

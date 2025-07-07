@@ -1,1 +1,0 @@
-// PaymentTerminal/index.jsx - Máy thanh toán 

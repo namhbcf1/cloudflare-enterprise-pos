@@ -1,1 +1,0 @@
-// ProductGrid/index.jsx - Lưới sản phẩm cho POS 

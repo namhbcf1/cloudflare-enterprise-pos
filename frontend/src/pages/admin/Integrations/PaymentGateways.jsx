@@ -1,1 +1,0 @@
-// PaymentGateways.jsx - Payment Gateways 

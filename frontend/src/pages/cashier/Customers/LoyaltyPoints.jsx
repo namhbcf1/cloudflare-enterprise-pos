@@ -1,1 +1,0 @@
-// LoyaltyPoints.jsx - Điểm thưởng 

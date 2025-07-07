@@ -1,1 +1,0 @@
-// calculators.js - Tính toán (hoa hồng, thuế) 

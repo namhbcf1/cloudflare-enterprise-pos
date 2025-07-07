@@ -1,1 +1,0 @@
-// GoalProgress.jsx - Tiến độ mục tiêu 

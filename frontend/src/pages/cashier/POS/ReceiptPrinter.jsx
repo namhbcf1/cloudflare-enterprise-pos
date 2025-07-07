@@ -1,1 +1,0 @@
-// ReceiptPrinter.jsx - In hóa đơn 

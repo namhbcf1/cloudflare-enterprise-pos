@@ -1,1 +1,0 @@
-// demandForecasting.js - Dự báo nhu cầu 

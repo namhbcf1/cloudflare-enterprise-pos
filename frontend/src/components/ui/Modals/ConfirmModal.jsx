@@ -1,1 +1,0 @@
-// Confirm modal component

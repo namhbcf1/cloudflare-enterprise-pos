@@ -1,1 +1,0 @@
-// CompanyProfile.jsx - Company Profile 

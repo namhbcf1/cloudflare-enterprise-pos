@@ -1,1 +1,0 @@
-// cashDrawer.js - Ngăn kéo tiền 
