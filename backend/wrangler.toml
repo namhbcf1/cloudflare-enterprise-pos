@@ -1,30 +1,16 @@
-name = "cloudflare-enterprise-pos-api"
+﻿name = "cloudflare-enterprise-pos-api"
 main = "src/index.js"
-compatibility_date = "2024-09-23"
-compatibility_flags = ["nodejs_compat"]
+compatibility_date = "2024-01-01"
+node_compat = true
 
-# Environment variables
+# Pages build output directory (for Pages integration)
+pages_build_output_dir = "../frontend/dist"
+
 [vars]
 ENVIRONMENT = "development"
 
-# Production environment
 [env.production]
 name = "cloudflare-enterprise-pos-api-prod"
 
-[env.production.vars] 
+[env.production.vars]
 ENVIRONMENT = "production"
-
-# Database bindings (D1)
-[[env.production.d1_databases]]
-binding = "DB"
-database_name = "enterprise-pos-db"
-database_id = "aecff177-2deb-4bda-834a-17e4b750441d"
-
-# KV bindings 
-[[env.production.kv_namespaces]]
-binding = "CACHE"
-id = "46b31b2c6ca449aaa3114d0ebb4fe645"
-
-# AI bindings
-[env.production.ai]
-binding = "AI" 

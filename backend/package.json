@@ -1,181 +1,19 @@
-{
-  "name": "enterprise-pos-backend",
-  "version": "2.0.0",
-  "description": "Enterprise POS Backend API - Cloudflare Workers",
-  "main": "src/index.js",
-  "type": "module",
-  "keywords": [
-    "cloudflare-workers", "pos", "api", "edge-computing", "serverless"
-  ],
-  "author": "namhbcf1",
-  "license": "MIT",
-  "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=9.0.0"
-  },
-  "scripts": {
-    "dev": "wrangler dev --local --persist",
-    "dev:remote": "wrangler dev --remote",
-    "dev:tunnel": "wrangler dev --local --persist --port 8787",
-    
-    "build": "rollup -c rollup.config.js",
-    "build:watch": "rollup -c rollup.config.js --watch",
-    "build:production": "NODE_ENV=production rollup -c rollup.config.js",
-    
-    "deploy": "npm run build && wrangler deploy",
-    "deploy:staging": "npm run build && wrangler deploy --env staging",
-    "deploy:production": "npm run build && wrangler deploy --env production",
-    
-    "db:create": "wrangler d1 create enterprise-pos-db",
-    "db:migrate": "wrangler d1 migrations apply enterprise-pos-db --local",
-    "db:migrate:staging": "wrangler d1 migrations apply enterprise-pos-db --env staging",
-    "db:migrate:production": "wrangler d1 migrations apply enterprise-pos-db --env production",
-    "db:reset": "wrangler d1 migrations apply enterprise-pos-db --local --force",
-    "db:seed": "wrangler d1 execute enterprise-pos-db --local --file=./database/seed.sql",
-    "db:seed:staging": "wrangler d1 execute enterprise-pos-db --env staging --file=./database/seed.sql",
-    "db:backup": "node scripts/backup-database.js",
-    "db:restore": "node scripts/restore-database.js",
-    
-    "kv:create": "wrangler kv:namespace create SESSIONS && wrangler kv:namespace create CACHE && wrangler kv:namespace create SETTINGS",
-    "kv:create:preview": "wrangler kv:namespace create SESSIONS --preview && wrangler kv:namespace create CACHE --preview && wrangler kv:namespace create SETTINGS --preview",
-    
-    "r2:create": "wrangler r2 bucket create enterprise-pos-uploads && wrangler r2 bucket create enterprise-pos-images && wrangler r2 bucket create enterprise-pos-backups",
-    
-    "secrets:list": "wrangler secret list",
-    "secrets:put": "node scripts/setup-secrets.js",
-    
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "test:integration": "vitest run --config vitest.integration.config.js",
-    "test:e2e": "playwright test",
-    
-    "lint": "eslint src --ext .js,.ts --fix",
-    "lint:check": "eslint src --ext .js,.ts",
-    "format": "prettier --write \"src/**/*.{js,ts,json}\"",
-    "format:check": "prettier --check \"src/**/*.{js,ts,json}\"",
-    
-    "typecheck": "tsc --noEmit",
-    
-    "logs": "wrangler tail",
-    "logs:production": "wrangler tail --env production",
-    "logs:search": "wrangler tail --grep",
-    
-    "analytics": "node scripts/analytics-report.js",
-    "monitoring": "node scripts/health-check.js",
-    "performance": "node scripts/performance-test.js",
-    
-    "cron:analytics": "wrangler d1 execute enterprise-pos-db --local --command=\"SELECT * FROM analytics_daily WHERE date = date('now')\"",
-    "cron:test": "node src/cron/test-cron.js",
-    
-    "setup": "npm install && npm run kv:create && npm run r2:create && npm run db:migrate && npm run db:seed",
-    "clean": "rm -rf dist node_modules .wrangler",
-    "clean:cache": "rm -rf .wrangler/state",
-    
-    "security:audit": "npm audit --audit-level moderate",
-    "security:scan": "node scripts/security-scan.js",
-    
-    "docs:generate": "node scripts/generate-api-docs.js",
-    "docs:openapi": "node scripts/generate-openapi.js"
-  },
-  "dependencies": {
-    "@cloudflare/ai": "^1.0.59",
-    "@cloudflare/workers-types": "^4.20241218.0",
-    "bcryptjs": "^2.4.3",
-    "jose": "^5.2.0",
-    "zod": "^3.22.4",
-    "cors": "^2.8.5",
-    "express-rate-limit": "^7.1.5",
-    "helmet": "^7.1.0",
-    "uuid": "^9.0.1",
-    "date-fns": "^3.0.6",
-    "lodash-es": "^4.17.21",
-    "validator": "^13.11.0",
-    "sharp": "^0.33.2",
-    "csv-parser": "^3.0.0",
-    "json2csv": "^6.1.0",
-    "crypto-js": "^4.2.0",
-    "otplib": "^12.0.1",
-    "qrcode": "^1.5.3",
-    "nodemailer": "^6.9.8",
-    "twilio": "^4.20.1",
-    "stripe": "^14.13.0",
-    "axios": "^1.6.5"
-  },
-  "devDependencies": {
-    "wrangler": "^3.78.12",
-    "@rollup/plugin-node-resolve": "^15.2.3",
-    "@rollup/plugin-commonjs": "^25.0.7",
-    "@rollup/plugin-json": "^6.1.0",
-    "@rollup/plugin-terser": "^0.4.4",
-    "rollup": "^4.9.6",
-    "rollup-plugin-copy": "^3.5.0",
-    "typescript": "^5.3.3",
-    "@types/node": "^20.10.6",
-    "eslint": "^8.56.0",
-    "@typescript-eslint/parser": "^6.18.1",
-    "@typescript-eslint/eslint-plugin": "^6.18.1",
-    "prettier": "^3.1.1",
-    "vitest": "^1.1.3",
-    "@vitest/coverage-v8": "^1.1.3",
-    "playwright": "^1.40.1",
-    "@playwright/test": "^1.40.1",
-    "msw": "^2.0.11",
-    "supertest": "^6.3.4",
-    "dotenv": "^16.3.1",
-    "cross-env": "^7.0.3",
-    "nodemon": "^3.0.2",
-    "concurrently": "^8.2.2"
-  },
-  "overrides": {
-    "@cloudflare/workers-types": "$@cloudflare/workers-types"
-  },
-  "eslintConfig": {
-    "env": {
-      "browser": true,
-      "es2022": true,
-      "node": true
-    },
-    "extends": [
-      "eslint:recommended",
-      "@typescript-eslint/recommended"
-    ],
-    "parser": "@typescript-eslint/parser",
-    "parserOptions": {
-      "ecmaVersion": "latest",
-      "sourceType": "module"
-    },
-    "rules": {
-      "no-unused-vars": "warn",
-      "@typescript-eslint/no-unused-vars": "warn",
-      "no-console": "warn",
-      "prefer-const": "error",
-      "no-var": "error"
-    }
-  },
-  "prettier": {
-    "semi": true,
-    "singleQuote": true,
-    "tabWidth": 2,
-    "trailingComma": "es5",
-    "printWidth": 100,
-    "bracketSpacing": true,
-    "arrowParens": "avoid"
-  },
-  "vitest": {
-    "globals": true,
-    "environment": "miniflare",
-    "environmentOptions": {
-      "bindings": {
-        "TEST": "true"
-      }
-    }
-  },
-  "bundlesize": [
-    {
-      "path": "./dist/index.js",
-      "maxSize": "1MB",
-      "compression": "gzip"
-    }
-  ]
+﻿{
+    "version":  "1.0.0",
+    "name":  "cloudflare-enterprise-pos-backend",
+    "description":  "Enterprise POS API on Cloudflare Workers",
+    "scripts":  {
+                    "start":  "wrangler dev",
+                    "dev":  "wrangler dev",
+                    "deploy":  "wrangler deploy"
+                },
+    "dependencies":  {
+                         "@cloudflare/workers-types":  "^4.20250523.0",
+                         "hono":  "^4.0.0"
+                     },
+    "devDependencies":  {
+                            "typescript":  "^5.3.0",
+                            "wrangler":  "^3.45.0"
+                        },
+    "main":  "src/index.js"
 }
