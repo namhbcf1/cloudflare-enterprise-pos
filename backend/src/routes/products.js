@@ -1,390 +1,664 @@
-/**
- * ============================================================================
- * PRODUCTS ROUTES
- * ============================================================================
- * Handles product management, inventory, and catalog operations
- */
+import { Hono } from 'hono'
+import { z } from 'zod'
 
-import { Hono } from 'hono';
-import { ProductController } from '../controllers/productController.js';
-import { rbacMiddleware } from '../middleware/rbac.js';
-import { validationMiddleware } from '../middleware/validation.js';
+const products = new Hono()
 
-const products = new Hono();
-const productController = new ProductController();
+// Validation schemas
+const createProductSchema = z.object({
+  sku: z.string().min(1, 'SKU is required').max(50),
+  name: z.string().min(1, 'Product name is required').max(200),
+  description: z.string().optional(),
+  category_id: z.string().optional(),
+  price: z.number().positive('Price must be positive'),
+  cost_price: z.number().positive('Cost price must be positive').optional(),
+  stock_quantity: z.number().int().min(0, 'Stock quantity cannot be negative').default(0),
+  reorder_level: z.number().int().min(0).default(10),
+  barcode: z.string().optional(),
+  image_url: z.string().url().optional(),
+  weight: z.number().positive().optional(),
+  dimensions: z.string().optional(), // JSON string
+  tax_rate: z.number().min(0).max(100).default(0)
+})
 
-/**
- * Product validation schemas
- */
-const createProductSchema = {
-  name: { type: 'string', required: true, minLength: 2, maxLength: 200 },
-  description: { type: 'string', required: false, maxLength: 1000 },
-  sku: { type: 'string', required: true, minLength: 3, maxLength: 50 },
-  barcode: { type: 'string', required: false, maxLength: 50 },
-  category_id: { type: 'number', required: true },
-  selling_price: { type: 'number', required: true, min: 0 },
-  cost_price: { type: 'number', required: false, min: 0 },
-  stock_quantity: { type: 'number', required: false, min: 0 },
-  min_stock_level: { type: 'number', required: false, min: 0 },
-  max_stock_level: { type: 'number', required: false, min: 1 },
-  weight: { type: 'number', required: false, min: 0 },
-  is_active: { type: 'boolean', required: false },
-  is_featured: { type: 'boolean', required: false },
-  tags: { type: 'array', required: false }
-};
+const updateProductSchema = createProductSchema.partial()
 
-const updateProductSchema = {
-  name: { type: 'string', required: false, minLength: 2, maxLength: 200 },
-  description: { type: 'string', required: false, maxLength: 1000 },
-  sku: { type: 'string', required: false, minLength: 3, maxLength: 50 },
-  barcode: { type: 'string', required: false, maxLength: 50 },
-  category_id: { type: 'number', required: false },
-  selling_price: { type: 'number', required: false, min: 0 },
-  cost_price: { type: 'number', required: false, min: 0 },
-  stock_quantity: { type: 'number', required: false, min: 0 },
-  min_stock_level: { type: 'number', required: false, min: 0 },
-  max_stock_level: { type: 'number', required: false, min: 1 },
-  weight: { type: 'number', required: false, min: 0 },
-  is_active: { type: 'boolean', required: false },
-  is_featured: { type: 'boolean', required: false },
-  tags: { type: 'array', required: false }
-};
+const stockUpdateSchema = z.object({
+  quantity_change: z.number().int(),
+  type: z.enum(['sale', 'restock', 'adjustment', 'waste', 'return']),
+  reason: z.string().optional(),
+  reference_id: z.string().optional()
+})
 
-const bulkUpdateSchema = {
-  product_ids: { type: 'array', required: true, minLength: 1 },
-  updates: { type: 'object', required: true }
-};
+// Helper functions
+async function logInventoryChange(db, productId, userId, data) {
+  try {
+    await db.prepare(`
+      INSERT INTO inventory_logs (
+        product_id, user_id, type, quantity_change, 
+        previous_quantity, new_quantity, reason, reference_id, created_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    `).bind(
+      productId,
+      userId,
+      data.type,
+      data.quantity_change,
+      data.previous_quantity,
+      data.new_quantity,
+      data.reason || null,
+      data.reference_id || null
+    ).run()
+  } catch (error) {
+    console.error('Failed to log inventory change:', error)
+  }
+}
 
-const stockAdjustmentSchema = {
-  product_id: { type: 'number', required: true },
-  adjustment_type: { type: 'string', required: true, enum: ['increase', 'decrease', 'set'] },
-  quantity: { type: 'number', required: true, min: 0 },
-  reason: { type: 'string', required: true, minLength: 5 },
-  notes: { type: 'string', required: false }
-};
+async function updateProductStock(db, productId, quantityChange, userId, logData) {
+  const product = await db.prepare(`
+    SELECT stock_quantity FROM products WHERE id = ?
+  `).bind(productId).first()
+  
+  if (!product) {
+    throw new Error('Product not found')
+  }
+  
+  const newQuantity = product.stock_quantity + quantityChange
+  
+  if (newQuantity < 0) {
+    throw new Error('Insufficient stock')
+  }
+  
+  await db.prepare(`
+    UPDATE products 
+    SET stock_quantity = ?, updated_at = datetime('now')
+    WHERE id = ?
+  `).bind(newQuantity, productId).run()
+  
+  // Log inventory change
+  await logInventoryChange(db, productId, userId, {
+    ...logData,
+    quantity_change: quantityChange,
+    previous_quantity: product.stock_quantity,
+    new_quantity: newQuantity
+  })
+  
+  return newQuantity
+}
 
-/**
- * @route GET /
- * @desc Get all products with filtering, pagination, and search
- * @access Private (All roles)
- */
+// ==========================================
+// GET ROUTES
+// ==========================================
+
+// GET /api/products - List all products with filters and pagination
 products.get('/', async (c) => {
-  return await productController.getProducts(c);
-});
+  try {
+    const user = c.get('user')
+    const { 
+      page = 1, 
+      limit = 20, 
+      search = '', 
+      category_id = '', 
+      is_active = '',
+      low_stock = '',
+      sort_by = 'name',
+      sort_order = 'asc'
+    } = c.req.query()
+    
+    const offset = (parseInt(page) - 1) * parseInt(limit)
+    const validSortColumns = ['name', 'price', 'stock_quantity', 'created_at', 'sku']
+    const sortColumn = validSortColumns.includes(sort_by) ? sort_by : 'name'
+    const sortDirection = sort_order.toLowerCase() === 'desc' ? 'DESC' : 'ASC'
+    
+    // Build WHERE clause
+    let whereConditions = []
+    let params = []
+    
+    if (search) {
+      whereConditions.push(`(p.name LIKE ? OR p.sku LIKE ? OR p.description LIKE ?)`)
+      const searchTerm = `%${search}%`
+      params.push(searchTerm, searchTerm, searchTerm)
+    }
+    
+    if (category_id) {
+      whereConditions.push(`p.category_id = ?`)
+      params.push(category_id)
+    }
+    
+    if (is_active !== '') {
+      whereConditions.push(`p.is_active = ?`)
+      params.push(is_active === 'true' ? 1 : 0)
+    }
+    
+    if (low_stock === 'true') {
+      whereConditions.push(`p.stock_quantity <= p.reorder_level`)
+    }
+    
+    const whereClause = whereConditions.length > 0 
+      ? `WHERE ${whereConditions.join(' AND ')}`
+      : ''
+    
+    // Get total count
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM products p
+      ${whereClause}
+    `
+    const countResult = await c.env.DB.prepare(countQuery).bind(...params).first()
+    const total = countResult.total
+    
+    // Get products with category info
+    const query = `
+      SELECT 
+        p.*,
+        c.name as category_name,
+        c.color as category_color,
+        CASE 
+          WHEN p.stock_quantity <= p.reorder_level THEN 1 
+          ELSE 0 
+        END as is_low_stock
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      ${whereClause}
+      ORDER BY p.${sortColumn} ${sortDirection}
+      LIMIT ? OFFSET ?
+    `
+    
+    const productsResult = await c.env.DB.prepare(query).bind(
+      ...params, 
+      parseInt(limit), 
+      offset
+    ).all()
+    
+    return c.json({
+      success: true,
+      data: productsResult.results,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        totalPages: Math.ceil(total / parseInt(limit))
+      }
+    })
+    
+  } catch (error) {
+    console.error('Get products error:', error)
+    return c.json({
+      error: 'Failed to fetch products',
+      code: 'FETCH_ERROR'
+    }, 500)
+  }
+})
 
-/**
- * @route GET /:id
- * @desc Get single product by ID
- * @access Private (All roles)
- */
+// GET /api/products/:id - Get single product
 products.get('/:id', async (c) => {
-  return await productController.getProductById(c);
-});
+  try {
+    const productId = c.req.param('id')
+    
+    const product = await c.env.DB.prepare(`
+      SELECT 
+        p.*,
+        c.name as category_name,
+        c.color as category_color,
+        CASE 
+          WHEN p.stock_quantity <= p.reorder_level THEN 1 
+          ELSE 0 
+        END as is_low_stock
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      WHERE p.id = ?
+    `).bind(productId).first()
+    
+    if (!product) {
+      return c.json({
+        error: 'Product not found',
+        code: 'PRODUCT_NOT_FOUND'
+      }, 404)
+    }
+    
+    return c.json({
+      success: true,
+      data: product
+    })
+    
+  } catch (error) {
+    console.error('Get product error:', error)
+    return c.json({
+      error: 'Failed to fetch product',
+      code: 'FETCH_ERROR'
+    }, 500)
+  }
+})
 
-/**
- * @route GET /sku/:sku
- * @desc Get product by SKU
- * @access Private (All roles)
- */
-products.get('/sku/:sku', async (c) => {
-  return await productController.getProductBySku(c);
-});
-
-/**
- * @route GET /barcode/:barcode
- * @desc Get product by barcode
- * @access Private (All roles)
- */
+// GET /api/products/barcode/:barcode - Get product by barcode
 products.get('/barcode/:barcode', async (c) => {
-  return await productController.getProductByBarcode(c);
-});
+  try {
+    const barcode = c.req.param('barcode')
+    
+    const product = await c.env.DB.prepare(`
+      SELECT 
+        p.*,
+        c.name as category_name,
+        c.color as category_color,
+        CASE 
+          WHEN p.stock_quantity <= p.reorder_level THEN 1 
+          ELSE 0 
+        END as is_low_stock
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      WHERE p.barcode = ? AND p.is_active = 1
+    `).bind(barcode).first()
+    
+    if (!product) {
+      return c.json({
+        error: 'Product not found',
+        code: 'PRODUCT_NOT_FOUND'
+      }, 404)
+    }
+    
+    return c.json({
+      success: true,
+      data: product
+    })
+    
+  } catch (error) {
+    console.error('Get product by barcode error:', error)
+    return c.json({
+      error: 'Failed to fetch product',
+      code: 'FETCH_ERROR'
+    }, 500)
+  }
+})
 
-/**
- * @route POST /
- * @desc Create new product
- * @access Private (Admin, Cashier)
- */
-products.post('/', rbacMiddleware(['admin', 'cashier']), validationMiddleware(createProductSchema), async (c) => {
-  return await productController.createProduct(c);
-});
+// GET /api/products/low-stock - Get low stock products
+products.get('/low-stock', async (c) => {
+  try {
+    const lowStockProducts = await c.env.DB.prepare(`
+      SELECT 
+        p.*,
+        c.name as category_name,
+        c.color as category_color
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      WHERE p.stock_quantity <= p.reorder_level 
+        AND p.is_active = 1
+      ORDER BY p.stock_quantity ASC
+    `).all()
+    
+    return c.json({
+      success: true,
+      data: lowStockProducts.results,
+      count: lowStockProducts.results.length
+    })
+    
+  } catch (error) {
+    console.error('Get low stock products error:', error)
+    return c.json({
+      error: 'Failed to fetch low stock products',
+      code: 'FETCH_ERROR'
+    }, 500)
+  }
+})
 
-/**
- * @route PUT /:id
- * @desc Update product
- * @access Private (Admin, Cashier)
- */
-products.put('/:id', rbacMiddleware(['admin', 'cashier']), validationMiddleware(updateProductSchema), async (c) => {
-  return await productController.updateProduct(c);
-});
+// ==========================================
+// POST ROUTES (Admin/Staff only)
+// ==========================================
 
-/**
- * @route DELETE /:id
- * @desc Delete product (soft delete)
- * @access Private (Admin)
- */
-products.delete('/:id', rbacMiddleware(['admin']), async (c) => {
-  return await productController.deleteProduct(c);
-});
+// POST /api/products - Create new product
+products.post('/', async (c) => {
+  try {
+    const user = c.get('user')
+    
+    // Check permissions (Admin/Staff only)
+    if (!['admin', 'staff'].includes(user.role)) {
+      return c.json({
+        error: 'Insufficient permissions',
+        code: 'INSUFFICIENT_PERMISSIONS'
+      }, 403)
+    }
+    
+    const body = await c.req.json()
+    const validatedData = createProductSchema.parse(body)
+    
+    // Check if SKU already exists
+    const existingSku = await c.env.DB.prepare(`
+      SELECT id FROM products WHERE sku = ?
+    `).bind(validatedData.sku).first()
+    
+    if (existingSku) {
+      return c.json({
+        error: 'SKU already exists',
+        code: 'SKU_EXISTS'
+      }, 409)
+    }
+    
+    // Check if barcode already exists (if provided)
+    if (validatedData.barcode) {
+      const existingBarcode = await c.env.DB.prepare(`
+        SELECT id FROM products WHERE barcode = ?
+      `).bind(validatedData.barcode).first()
+      
+      if (existingBarcode) {
+        return c.json({
+          error: 'Barcode already exists',
+          code: 'BARCODE_EXISTS'
+        }, 409)
+      }
+    }
+    
+    // Create product
+    const productId = crypto.randomUUID()
+    await c.env.DB.prepare(`
+      INSERT INTO products (
+        id, sku, name, description, category_id, price, cost_price,
+        stock_quantity, reorder_level, barcode, image_url, weight,
+        dimensions, tax_rate, created_at, updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+    `).bind(
+      productId,
+      validatedData.sku,
+      validatedData.name,
+      validatedData.description || null,
+      validatedData.category_id || null,
+      validatedData.price,
+      validatedData.cost_price || null,
+      validatedData.stock_quantity,
+      validatedData.reorder_level,
+      validatedData.barcode || null,
+      validatedData.image_url || null,
+      validatedData.weight || null,
+      validatedData.dimensions || null,
+      validatedData.tax_rate
+    ).run()
+    
+    // Log initial stock if > 0
+    if (validatedData.stock_quantity > 0) {
+      await logInventoryChange(c.env.DB, productId, user.id, {
+        type: 'restock',
+        quantity_change: validatedData.stock_quantity,
+        previous_quantity: 0,
+        new_quantity: validatedData.stock_quantity,
+        reason: 'Initial stock'
+      })
+    }
+    
+    // Get created product
+    const newProduct = await c.env.DB.prepare(`
+      SELECT 
+        p.*,
+        c.name as category_name
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      WHERE p.id = ?
+    `).bind(productId).first()
+    
+    return c.json({
+      success: true,
+      message: 'Product created successfully',
+      data: newProduct
+    }, 201)
+    
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return c.json({
+        error: 'Validation failed',
+        details: error.errors
+      }, 400)
+    }
+    
+    console.error('Create product error:', error)
+    return c.json({
+      error: 'Failed to create product',
+      code: 'CREATE_ERROR'
+    }, 500)
+  }
+})
 
-/**
- * @route POST /bulk-update
- * @desc Bulk update products
- * @access Private (Admin)
- */
-products.post('/bulk-update', rbacMiddleware(['admin']), validationMiddleware(bulkUpdateSchema), async (c) => {
-  return await productController.bulkUpdateProducts(c);
-});
+// ==========================================
+// PUT ROUTES (Admin/Staff only)
+// ==========================================
 
-/**
- * @route POST /bulk-delete
- * @desc Bulk delete products
- * @access Private (Admin)
- */
-products.post('/bulk-delete', rbacMiddleware(['admin']), async (c) => {
-  return await productController.bulkDeleteProducts(c);
-});
+// PUT /api/products/:id - Update product
+products.put('/:id', async (c) => {
+  try {
+    const user = c.get('user')
+    const productId = c.req.param('id')
+    
+    // Check permissions
+    if (!['admin', 'staff'].includes(user.role)) {
+      return c.json({
+        error: 'Insufficient permissions',
+        code: 'INSUFFICIENT_PERMISSIONS'
+      }, 403)
+    }
+    
+    const body = await c.req.json()
+    const validatedData = updateProductSchema.parse(body)
+    
+    // Check if product exists
+    const existingProduct = await c.env.DB.prepare(`
+      SELECT * FROM products WHERE id = ?
+    `).bind(productId).first()
+    
+    if (!existingProduct) {
+      return c.json({
+        error: 'Product not found',
+        code: 'PRODUCT_NOT_FOUND'
+      }, 404)
+    }
+    
+    // Check SKU uniqueness (if being updated)
+    if (validatedData.sku && validatedData.sku !== existingProduct.sku) {
+      const skuExists = await c.env.DB.prepare(`
+        SELECT id FROM products WHERE sku = ? AND id != ?
+      `).bind(validatedData.sku, productId).first()
+      
+      if (skuExists) {
+        return c.json({
+          error: 'SKU already exists',
+          code: 'SKU_EXISTS'
+        }, 409)
+      }
+    }
+    
+    // Check barcode uniqueness (if being updated)
+    if (validatedData.barcode && validatedData.barcode !== existingProduct.barcode) {
+      const barcodeExists = await c.env.DB.prepare(`
+        SELECT id FROM products WHERE barcode = ? AND id != ?
+      `).bind(validatedData.barcode, productId).first()
+      
+      if (barcodeExists) {
+        return c.json({
+          error: 'Barcode already exists',
+          code: 'BARCODE_EXISTS'
+        }, 409)
+      }
+    }
+    
+    // Build update query
+    const updates = []
+    const params = []
+    
+    Object.entries(validatedData).forEach(([key, value]) => {
+      if (value !== undefined) {
+        updates.push(`${key} = ?`)
+        params.push(value)
+      }
+    })
+    
+    if (updates.length === 0) {
+      return c.json({
+        error: 'No fields to update',
+        code: 'NO_UPDATES'
+      }, 400)
+    }
+    
+    updates.push('updated_at = datetime(\'now\')')
+    params.push(productId)
+    
+    await c.env.DB.prepare(`
+      UPDATE products 
+      SET ${updates.join(', ')}
+      WHERE id = ?
+    `).bind(...params).run()
+    
+    // Get updated product
+    const updatedProduct = await c.env.DB.prepare(`
+      SELECT 
+        p.*,
+        c.name as category_name
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      WHERE p.id = ?
+    `).bind(productId).first()
+    
+    return c.json({
+      success: true,
+      message: 'Product updated successfully',
+      data: updatedProduct
+    })
+    
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return c.json({
+        error: 'Validation failed',
+        details: error.errors
+      }, 400)
+    }
+    
+    console.error('Update product error:', error)
+    return c.json({
+      error: 'Failed to update product',
+      code: 'UPDATE_ERROR'
+    }, 500)
+  }
+})
 
-/**
- * @route GET /search/:query
- * @desc Search products
- * @access Private (All roles)
- */
-products.get('/search/:query', async (c) => {
-  return await productController.searchProducts(c);
-});
+// PUT /api/products/:id/stock - Update product stock
+products.put('/:id/stock', async (c) => {
+  try {
+    const user = c.get('user')
+    const productId = c.req.param('id')
+    
+    // Check permissions
+    if (!['admin', 'staff'].includes(user.role)) {
+      return c.json({
+        error: 'Insufficient permissions',
+        code: 'INSUFFICIENT_PERMISSIONS'
+      }, 403)
+    }
+    
+    const body = await c.req.json()
+    const validatedData = stockUpdateSchema.parse(body)
+    
+    // Update stock and log change
+    const newQuantity = await updateProductStock(
+      c.env.DB, 
+      productId, 
+      validatedData.quantity_change, 
+      user.id,
+      {
+        type: validatedData.type,
+        reason: validatedData.reason,
+        reference_id: validatedData.reference_id
+      }
+    )
+    
+    // Get updated product
+    const product = await c.env.DB.prepare(`
+      SELECT * FROM products WHERE id = ?
+    `).bind(productId).first()
+    
+    return c.json({
+      success: true,
+      message: 'Stock updated successfully',
+      data: {
+        product_id: productId,
+        previous_quantity: newQuantity - validatedData.quantity_change,
+        new_quantity: newQuantity,
+        quantity_change: validatedData.quantity_change
+      }
+    })
+    
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return c.json({
+        error: 'Validation failed',
+        details: error.errors
+      }, 400)
+    }
+    
+    if (error.message === 'Product not found') {
+      return c.json({
+        error: 'Product not found',
+        code: 'PRODUCT_NOT_FOUND'
+      }, 404)
+    }
+    
+    if (error.message === 'Insufficient stock') {
+      return c.json({
+        error: 'Insufficient stock',
+        code: 'INSUFFICIENT_STOCK'
+      }, 400)
+    }
+    
+    console.error('Update stock error:', error)
+    return c.json({
+      error: 'Failed to update stock',
+      code: 'UPDATE_ERROR'
+    }, 500)
+  }
+})
 
-/**
- * @route GET /category/:categoryId
- * @desc Get products by category
- * @access Private (All roles)
- */
-products.get('/category/:categoryId', async (c) => {
-  return await productController.getProductsByCategory(c);
-});
+// ==========================================
+// DELETE ROUTES (Admin only)
+// ==========================================
 
-/**
- * @route GET /featured
- * @desc Get featured products
- * @access Private (All roles)
- */
-products.get('/featured', async (c) => {
-  return await productController.getFeaturedProducts(c);
-});
+// DELETE /api/products/:id - Delete product (soft delete)
+products.delete('/:id', async (c) => {
+  try {
+    const user = c.get('user')
+    const productId = c.req.param('id')
+    
+    // Check permissions (Admin only)
+    if (user.role !== 'admin') {
+      return c.json({
+        error: 'Insufficient permissions',
+        code: 'INSUFFICIENT_PERMISSIONS'
+      }, 403)
+    }
+    
+    // Check if product exists
+    const product = await c.env.DB.prepare(`
+      SELECT * FROM products WHERE id = ?
+    `).bind(productId).first()
+    
+    if (!product) {
+      return c.json({
+        error: 'Product not found',
+        code: 'PRODUCT_NOT_FOUND'
+      }, 404)
+    }
+    
+    // Soft delete (set is_active = 0)
+    await c.env.DB.prepare(`
+      UPDATE products 
+      SET is_active = 0, updated_at = datetime('now')
+      WHERE id = ?
+    `).bind(productId).run()
+    
+    return c.json({
+      success: true,
+      message: 'Product deleted successfully'
+    })
+    
+  } catch (error) {
+    console.error('Delete product error:', error)
+    return c.json({
+      error: 'Failed to delete product',
+      code: 'DELETE_ERROR'
+    }, 500)
+  }
+})
 
-/**
- * @route GET /low-stock
- * @desc Get low stock products
- * @access Private (Admin, Cashier)
- */
-products.get('/low-stock', rbacMiddleware(['admin', 'cashier']), async (c) => {
-  return await productController.getLowStockProducts(c);
-});
-
-/**
- * @route GET /out-of-stock
- * @desc Get out of stock products
- * @access Private (Admin, Cashier)
- */
-products.get('/out-of-stock', rbacMiddleware(['admin', 'cashier']), async (c) => {
-  return await productController.getOutOfStockProducts(c);
-});
-
-/**
- * @route GET /top-selling
- * @desc Get top selling products
- * @access Private (Admin, Cashier)
- */
-products.get('/top-selling', rbacMiddleware(['admin', 'cashier']), async (c) => {
-  return await productController.getTopSellingProducts(c);
-});
-
-/**
- * @route POST /:id/duplicate
- * @desc Duplicate product
- * @access Private (Admin, Cashier)
- */
-products.post('/:id/duplicate', rbacMiddleware(['admin', 'cashier']), async (c) => {
-  return await productController.duplicateProduct(c);
-});
-
-/**
- * @route PUT /:id/status
- * @desc Update product status (active/inactive)
- * @access Private (Admin, Cashier)
- */
-products.put('/:id/status', rbacMiddleware(['admin', 'cashier']), async (c) => {
-  return await productController.updateProductStatus(c);
-});
-
-/**
- * @route POST /:id/stock-adjustment
- * @desc Adjust product stock
- * @access Private (Admin, Cashier)
- */
-products.post('/:id/stock-adjustment', rbacMiddleware(['admin', 'cashier']), validationMiddleware(stockAdjustmentSchema), async (c) => {
-  return await productController.adjustStock(c);
-});
-
-/**
- * @route GET /:id/stock-history
- * @desc Get product stock movement history
- * @access Private (Admin, Cashier)
- */
-products.get('/:id/stock-history', rbacMiddleware(['admin', 'cashier']), async (c) => {
-  return await productController.getStockHistory(c);
-});
-
-/**
- * @route GET /:id/sales-history
- * @desc Get product sales history
- * @access Private (Admin, Cashier)
- */
-products.get('/:id/sales-history', rbacMiddleware(['admin', 'cashier']), async (c) => {
-  return await productController.getSalesHistory(c);
-});
-
-/**
- * @route POST /:id/upload-image
- * @desc Upload product image
- * @access Private (Admin, Cashier)
- */
-products.post('/:id/upload-image', rbacMiddleware(['admin', 'cashier']), async (c) => {
-  return await productController.uploadProductImage(c);
-});
-
-/**
- * @route DELETE /:id/image
- * @desc Delete product image
- * @access Private (Admin, Cashier)
- */
-products.delete('/:id/image', rbacMiddleware(['admin', 'cashier']), async (c) => {
-  return await productController.deleteProductImage(c);
-});
-
-/**
- * @route GET /:id/recommendations
- * @desc Get AI-powered product recommendations
- * @access Private (All roles)
- */
-products.get('/:id/recommendations', async (c) => {
-  return await productController.getProductRecommendations(c);
-});
-
-/**
- * @route POST /:id/review
- * @desc Add product review/rating
- * @access Private (All roles)
- */
-products.post('/:id/review', async (c) => {
-  return await productController.addProductReview(c);
-});
-
-/**
- * @route GET /:id/reviews
- * @desc Get product reviews
- * @access Private (All roles)
- */
-products.get('/:id/reviews', async (c) => {
-  return await productController.getProductReviews(c);
-});
-
-/**
- * @route POST /import
- * @desc Import products from CSV/Excel
- * @access Private (Admin)
- */
-products.post('/import', rbacMiddleware(['admin']), async (c) => {
-  return await productController.importProducts(c);
-});
-
-/**
- * @route GET /export
- * @desc Export products to CSV/Excel
- * @access Private (Admin, Cashier)
- */
-products.get('/export', rbacMiddleware(['admin', 'cashier']), async (c) => {
-  return await productController.exportProducts(c);
-});
-
-/**
- * @route POST /generate-barcode
- * @desc Generate barcode for product
- * @access Private (Admin, Cashier)
- */
-products.post('/generate-barcode', rbacMiddleware(['admin', 'cashier']), async (c) => {
-  return await productController.generateBarcode(c);
-});
-
-/**
- * @route POST /print-labels
- * @desc Print product labels
- * @access Private (Admin, Cashier)
- */
-products.post('/print-labels', rbacMiddleware(['admin', 'cashier']), async (c) => {
-  return await productController.printLabels(c);
-});
-
-/**
- * @route GET /analytics
- * @desc Get product analytics
- * @access Private (Admin, Cashier)
- */
-products.get('/analytics', rbacMiddleware(['admin', 'cashier']), async (c) => {
-  return await productController.getProductAnalytics(c);
-});
-
-/**
- * @route POST /price-optimization
- * @desc Get AI-powered price optimization suggestions
- * @access Private (Admin)
- */
-products.post('/price-optimization', rbacMiddleware(['admin']), async (c) => {
-  return await productController.getPriceOptimization(c);
-});
-
-/**
- * @route GET /demand-forecast/:id
- * @desc Get demand forecast for product
- * @access Private (Admin)
- */
-products.get('/demand-forecast/:id', rbacMiddleware(['admin']), async (c) => {
-  return await productController.getDemandForecast(c);
-});
-
-/**
- * @route POST /:id/variants
- * @desc Create product variants
- * @access Private (Admin, Cashier)
- */
-products.post('/:id/variants', rbacMiddleware(['admin', 'cashier']), async (c) => {
-  return await productController.createProductVariants(c);
-});
-
-/**
- * @route GET /:id/variants
- * @desc Get product variants
- * @access Private (All roles)
- */
-products.get('/:id/variants', async (c) => {
-  return await productController.getProductVariants(c);
-});
-
-/**
- * @route PUT /variants/:variantId
- * @desc Update product variant
- * @access Private (Admin, Cashier)
- */
-products.put('/variants/:variantId', rbacMiddleware(['admin', 'cashier']), async (c) => {
-  return await productController.updateProductVariant(c);
-});
-
-/**
- * @route DELETE /variants/:variantId
- * @desc Delete product variant
- * @access Private (Admin)
- */
-products.delete('/variants/:variantId', rbacMiddleware(['admin']), async (c) => {
-  return await productController.deleteProductVariant(c);
-});
-
-export default products;
+export default products

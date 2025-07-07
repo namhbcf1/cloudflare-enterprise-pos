@@ -1,10 +1,9 @@
 #!/bin/bash
 
-# ============================================================================
-# CLOUDFLARE ENTERPRISE POS - AUTOMATED SETUP SCRIPT
-# ============================================================================
-# This script will setup the entire POS system from scratch
-# Run: chmod +x scripts/setup.sh && ./scripts/setup.sh
+# =====================================================
+# ENTERPRISE POS SYSTEM - AUTO SETUP SCRIPT
+# Sets up the complete POS system on Cloudflare
+# =====================================================
 
 set -e  # Exit on any error
 
@@ -17,25 +16,33 @@ PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# Logging functions
-log_info() {
+# Configuration
+PROJECT_NAME="enterprise-pos"
+BACKEND_DIR="backend"
+FRONTEND_DIR="frontend"
+NODE_VERSION="18"
+
+# Print colored output
+print_status() {
     echo -e "${BLUE}[INFO]${NC} $1"
 }
 
-log_success() {
+print_success() {
     echo -e "${GREEN}[SUCCESS]${NC} $1"
 }
 
-log_warning() {
+print_warning() {
     echo -e "${YELLOW}[WARNING]${NC} $1"
 }
 
-log_error() {
+print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-log_header() {
-    echo -e "\n${PURPLE}=== $1 ===${NC}\n"
+print_header() {
+    echo -e "${PURPLE}================================${NC}"
+    echo -e "${PURPLE}$1${NC}"
+    echo -e "${PURPLE}================================${NC}"
 }
 
 # Check if command exists
@@ -43,399 +50,483 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# Prompt user for input
-prompt_user() {
-    local prompt="$1"
-    local var_name="$2"
-    local default_value="$3"
-    
-    if [ -n "$default_value" ]; then
-        read -p "$(echo -e ${CYAN}$prompt${NC} [${default_value}]: )" input
-        if [ -z "$input" ]; then
-            input="$default_value"
-        fi
-    else
-        read -p "$(echo -e ${CYAN}$prompt${NC}: )" input
-    fi
-    
-    eval "$var_name='$input'"
-}
-
-# Main setup function
-main() {
-    log_header "🚀 CLOUDFLARE ENTERPRISE POS SETUP"
-    echo "This script will setup your complete POS system with:"
-    echo "• Cloudflare Workers backend"
-    echo "• D1 Database with migrations"
-    echo "• KV Store for caching"
-    echo "• R2 Storage for files"
-    echo "• React frontend with PWA support"
-    echo "• AI integration for recommendations"
-    echo "• Gamification system for staff"
-    echo ""
-    
-    # Confirm setup
-    read -p "$(echo -e ${CYAN}Continue with setup?${NC} [y/N]: )" confirm
-    if [[ ! $confirm =~ ^[Yy]$ ]]; then
-        log_info "Setup cancelled by user"
-        exit 0
-    fi
-    
-    # Check prerequisites
-    check_prerequisites
-    
-    # Get user configuration
-    get_user_config
-    
-    # Setup project
-    setup_project_structure
-    install_dependencies
-    setup_cloudflare_services
-    setup_database
-    setup_frontend
-    create_env_files
-    
-    # Final steps
-    show_completion_message
-}
-
-# Check prerequisites
-check_prerequisites() {
-    log_header "🔍 CHECKING PREREQUISITES"
+# Check system requirements
+check_requirements() {
+    print_header "CHECKING SYSTEM REQUIREMENTS"
     
     # Check Node.js
-    if ! command_exists node; then
-        log_error "Node.js is not installed. Please install Node.js 18+ from https://nodejs.org/"
-        exit 1
-    fi
-    
-    local node_version=$(node --version | cut -d 'v' -f 2 | cut -d '.' -f 1)
-    if [ "$node_version" -lt 18 ]; then
-        log_error "Node.js version 18+ is required. Current version: $(node --version)"
-        exit 1
-    fi
-    log_success "Node.js $(node --version) ✓"
-    
-    # Check npm
-    if ! command_exists npm; then
-        log_error "npm is not installed"
-        exit 1
-    fi
-    log_success "npm $(npm --version) ✓"
-    
-    # Check/Install Wrangler
-    if ! command_exists wrangler; then
-        log_info "Installing Wrangler CLI..."
-        npm install -g wrangler
-        if [ $? -eq 0 ]; then
-            log_success "Wrangler CLI installed ✓"
+    if command_exists node; then
+        NODE_CURRENT=$(node --version | cut -d'v' -f2 | cut -d'.' -f1)
+        if [ "$NODE_CURRENT" -ge "$NODE_VERSION" ]; then
+            print_success "Node.js $(node --version) is installed"
         else
-            log_error "Failed to install Wrangler CLI"
+            print_error "Node.js version $NODE_VERSION or higher is required. Current: $(node --version)"
             exit 1
         fi
     else
-        log_success "Wrangler CLI $(wrangler --version | head -n1) ✓"
+        print_error "Node.js is not installed. Please install Node.js $NODE_VERSION or higher."
+        print_status "Visit: https://nodejs.org/"
+        exit 1
     fi
     
-    # Check Git
-    if ! command_exists git; then
-        log_warning "Git is not installed. This is optional but recommended."
+    # Check npm
+    if command_exists npm; then
+        print_success "npm $(npm --version) is installed"
     else
-        log_success "Git $(git --version | cut -d ' ' -f 3) ✓"
+        print_error "npm is not installed"
+        exit 1
     fi
-}
-
-# Get user configuration
-get_user_config() {
-    log_header "⚙️ CONFIGURATION"
     
-    echo "Please provide the following information for your POS system:"
+    # Check git
+    if command_exists git; then
+        print_success "Git $(git --version | cut -d' ' -f3) is installed"
+    else
+        print_warning "Git is not installed. Some features may not work."
+    fi
+    
+    # Check wrangler CLI
+    if command_exists wrangler; then
+        print_success "Wrangler $(wrangler --version | cut -d' ' -f2) is installed"
+    else
+        print_warning "Wrangler CLI not found. Installing..."
+        npm install -g wrangler@latest
+        print_success "Wrangler CLI installed"
+    fi
+    
     echo ""
-    
-    prompt_user "Company Name" COMPANY_NAME "Your Company Name"
-    prompt_user "Company Email" COMPANY_EMAIL "admin@yourcompany.com"
-    prompt_user "Support Email" SUPPORT_EMAIL "support@yourcompany.com"
-    prompt_user "Default Currency" DEFAULT_CURRENCY "USD"
-    prompt_user "Default Tax Rate (%)" DEFAULT_TAX_RATE "8.25"
-    prompt_user "Timezone" TIMEZONE "America/New_York"
-    
-    echo ""
-    log_info "Configuration saved!"
-}
-
-# Setup project structure
-setup_project_structure() {
-    log_header "📁 SETTING UP PROJECT STRUCTURE"
-    
-    # Create main directories
-    log_info "Creating directory structure..."
-    
-    mkdir -p backend/src/{routes,controllers,middleware,services,utils,websocket,ai}
-    mkdir -p backend/migrations
-    mkdir -p backend/docs
-    mkdir -p frontend/src/{auth,components,pages,services,utils,styles,routes}
-    mkdir -p frontend/public/{icons,sounds}
-    mkdir -p docs/{architecture,guides,screenshots}
-    mkdir -p scripts
-    mkdir -p .github/workflows
-    
-    log_success "Directory structure created ✓"
 }
 
 # Install dependencies
 install_dependencies() {
-    log_header "📦 INSTALLING DEPENDENCIES"
+    print_header "INSTALLING DEPENDENCIES"
     
-    # Install root dependencies
-    log_info "Installing root workspace dependencies..."
-    npm install
+    # Backend dependencies
+    if [ -d "$BACKEND_DIR" ]; then
+        print_status "Installing backend dependencies..."
+        cd $BACKEND_DIR
+        
+        if [ -f "package.json" ]; then
+            npm install
+            print_success "Backend dependencies installed"
+        else
+            print_error "Backend package.json not found"
+            exit 1
+        fi
+        
+        cd ..
+    else
+        print_error "Backend directory not found"
+        exit 1
+    fi
     
-    # Install backend dependencies
-    log_info "Installing backend dependencies..."
-    cd backend
-    npm install
-    cd ..
+    # Frontend dependencies
+    if [ -d "$FRONTEND_DIR" ]; then
+        print_status "Installing frontend dependencies..."
+        cd $FRONTEND_DIR
+        
+        if [ -f "package.json" ]; then
+            npm install
+            print_success "Frontend dependencies installed"
+        else
+            print_error "Frontend package.json not found"
+            exit 1
+        fi
+        
+        cd ..
+    else
+        print_error "Frontend directory not found"
+        exit 1
+    fi
     
-    # Install frontend dependencies
-    log_info "Installing frontend dependencies..."
-    cd frontend
-    npm install
-    cd ..
+    # Root dependencies (if any)
+    if [ -f "package.json" ]; then
+        print_status "Installing root dependencies..."
+        npm install
+        print_success "Root dependencies installed"
+    fi
     
-    log_success "All dependencies installed ✓"
+    echo ""
 }
 
-# Setup Cloudflare services
-setup_cloudflare_services() {
-    log_header "☁️ SETTING UP CLOUDFLARE SERVICES"
+# Cloudflare authentication
+cloudflare_auth() {
+    print_header "CLOUDFLARE AUTHENTICATION"
     
-    # Check if user is logged in to Cloudflare
-    log_info "Checking Cloudflare authentication..."
-    if ! wrangler whoami >/dev/null 2>&1; then
-        log_info "Please login to Cloudflare..."
-        wrangler auth login
+    # Check if already authenticated
+    if wrangler whoami >/dev/null 2>&1; then
+        CURRENT_USER=$(wrangler whoami 2>/dev/null | grep "You are logged in" | cut -d' ' -f6 || echo "unknown")
+        print_success "Already authenticated as: $CURRENT_USER"
         
-        if [ $? -ne 0 ]; then
-            log_error "Failed to authenticate with Cloudflare"
+        read -p "$(echo -e ${YELLOW}Do you want to re-authenticate? [y/N]: ${NC})" -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            wrangler logout
+            wrangler login
+        fi
+    else
+        print_status "Please authenticate with Cloudflare..."
+        print_status "This will open a browser window for authentication."
+        read -p "$(echo -e ${YELLOW}Press Enter to continue...${NC})"
+        
+        wrangler login
+        
+        if wrangler whoami >/dev/null 2>&1; then
+            print_success "Successfully authenticated with Cloudflare"
+        else
+            print_error "Cloudflare authentication failed"
             exit 1
         fi
     fi
     
-    local cf_user=$(wrangler whoami 2>/dev/null | head -n1)
-    log_success "Authenticated as: $cf_user ✓"
+    echo ""
+}
+
+# Create Cloudflare resources
+create_cloudflare_resources() {
+    print_header "CREATING CLOUDFLARE RESOURCES"
     
-    cd backend
+    cd $BACKEND_DIR
     
     # Create D1 Database
-    log_info "Creating D1 database..."
-    local db_output=$(wrangler d1 create enterprise-pos-db 2>&1)
-    if [ $? -eq 0 ]; then
-        # Extract database ID
-        local db_id=$(echo "$db_output" | grep -o 'database_id = "[^"]*"' | cut -d '"' -f 2)
-        if [ -n "$db_id" ]; then
-            log_success "D1 Database created ✓"
-            log_info "Database ID: $db_id"
-            
-            # Update wrangler.toml with actual database ID
-            sed -i.bak "s/your-database-id-here/$db_id/g" wrangler.toml
-            rm wrangler.toml.bak 2>/dev/null || true
+    print_status "Creating D1 database..."
+    if wrangler d1 list | grep -q "$PROJECT_NAME-db"; then
+        print_warning "D1 database '$PROJECT_NAME-db' already exists"
+        DB_ID=$(wrangler d1 list | grep "$PROJECT_NAME-db" | awk '{print $2}')
+    else
+        DB_OUTPUT=$(wrangler d1 create "$PROJECT_NAME-db" 2>&1)
+        if echo "$DB_OUTPUT" | grep -q "Created D1 database"; then
+            DB_ID=$(echo "$DB_OUTPUT" | grep "database_id" | cut -d'"' -f4)
+            print_success "D1 database created with ID: $DB_ID"
         else
-            log_warning "Database created but couldn't extract ID. Please update wrangler.toml manually."
+            print_error "Failed to create D1 database"
+            echo "$DB_OUTPUT"
+            exit 1
         fi
-    else
-        log_warning "Database might already exist or creation failed. Please check manually."
     fi
     
-    # Create KV namespace
-    log_info "Creating KV namespace..."
-    local kv_output=$(wrangler kv:namespace create "CACHE" 2>&1)
-    if [ $? -eq 0 ]; then
-        local kv_id=$(echo "$kv_output" | grep -o 'id = "[^"]*"' | cut -d '"' -f 2)
-        if [ -n "$kv_id" ]; then
-            log_success "KV Namespace created ✓"
-            log_info "KV Namespace ID: $kv_id"
-            
-            # Update wrangler.toml with actual KV ID
-            sed -i.bak "s/your-kv-namespace-id/$kv_id/g" wrangler.toml
-            rm wrangler.toml.bak 2>/dev/null || true
-        fi
+    # Create KV namespaces
+    print_status "Creating KV namespaces..."
+    
+    # Cache namespace
+    if wrangler kv:namespace list | grep -q "$PROJECT_NAME-cache"; then
+        print_warning "KV namespace '$PROJECT_NAME-cache' already exists"
     else
-        log_warning "KV namespace might already exist or creation failed."
+        CACHE_KV_OUTPUT=$(wrangler kv:namespace create "$PROJECT_NAME-cache" 2>&1)
+        if echo "$CACHE_KV_OUTPUT" | grep -q "Success"; then
+            CACHE_KV_ID=$(echo "$CACHE_KV_OUTPUT" | grep "id" | cut -d'"' -f4)
+            print_success "Cache KV namespace created with ID: $CACHE_KV_ID"
+        else
+            print_error "Failed to create cache KV namespace"
+            exit 1
+        fi
     fi
     
-    # Create KV preview namespace
-    log_info "Creating KV preview namespace..."
-    local kv_preview_output=$(wrangler kv:namespace create "CACHE" --preview 2>&1)
-    if [ $? -eq 0 ]; then
-        local kv_preview_id=$(echo "$kv_preview_output" | grep -o 'preview_id = "[^"]*"' | cut -d '"' -f 2)
-        if [ -n "$kv_preview_id" ]; then
-            log_success "KV Preview Namespace created ✓"
-            
-            # Update wrangler.toml with preview ID
-            sed -i.bak "s/your-preview-kv-namespace-id/$kv_preview_id/g" wrangler.toml
-            rm wrangler.toml.bak 2>/dev/null || true
+    # Sessions namespace
+    if wrangler kv:namespace list | grep -q "$PROJECT_NAME-sessions"; then
+        print_warning "KV namespace '$PROJECT_NAME-sessions' already exists"
+    else
+        SESSIONS_KV_OUTPUT=$(wrangler kv:namespace create "$PROJECT_NAME-sessions" 2>&1)
+        if echo "$SESSIONS_KV_OUTPUT" | grep -q "Success"; then
+            SESSIONS_KV_ID=$(echo "$SESSIONS_KV_OUTPUT" | grep "id" | cut -d'"' -f4)
+            print_success "Sessions KV namespace created with ID: $SESSIONS_KV_ID"
+        else
+            print_error "Failed to create sessions KV namespace"
+            exit 1
+        fi
+    fi
+    
+    # Settings namespace
+    if wrangler kv:namespace list | grep -q "$PROJECT_NAME-settings"; then
+        print_warning "KV namespace '$PROJECT_NAME-settings' already exists"
+    else
+        SETTINGS_KV_OUTPUT=$(wrangler kv:namespace create "$PROJECT_NAME-settings" 2>&1)
+        if echo "$SETTINGS_KV_OUTPUT" | grep -q "Success"; then
+            SETTINGS_KV_ID=$(echo "$SETTINGS_KV_OUTPUT" | grep "id" | cut -d'"' -f4)
+            print_success "Settings KV namespace created with ID: $SETTINGS_KV_ID"
+        else
+            print_error "Failed to create settings KV namespace"
+            exit 1
         fi
     fi
     
     # Create R2 bucket
-    log_info "Creating R2 bucket..."
-    if wrangler r2 bucket create enterprise-pos-files 2>/dev/null; then
-        log_success "R2 Bucket created ✓"
+    print_status "Creating R2 bucket..."
+    if wrangler r2 bucket list | grep -q "$PROJECT_NAME-storage"; then
+        print_warning "R2 bucket '$PROJECT_NAME-storage' already exists"
     else
-        log_warning "R2 bucket might already exist or creation failed."
+        if wrangler r2 bucket create "$PROJECT_NAME-storage" >/dev/null 2>&1; then
+            print_success "R2 bucket '$PROJECT_NAME-storage' created"
+        else
+            print_error "Failed to create R2 bucket"
+            exit 1
+        fi
     fi
     
     cd ..
+    echo ""
 }
 
-# Setup database
-setup_database() {
-    log_header "🗄️ SETTING UP DATABASE"
+# Update configuration files
+update_config() {
+    print_header "UPDATING CONFIGURATION FILES"
     
-    cd backend
+    # Update wrangler.toml with actual resource IDs
+    print_status "Updating wrangler.toml..."
+    
+    cd $BACKEND_DIR
+    
+    # Get actual resource IDs
+    if [ -z "$DB_ID" ]; then
+        DB_ID=$(wrangler d1 list | grep "$PROJECT_NAME-db" | awk '{print $2}')
+    fi
+    
+    if [ -z "$CACHE_KV_ID" ]; then
+        CACHE_KV_ID=$(wrangler kv:namespace list | grep "$PROJECT_NAME-cache" | awk '{print $2}')
+    fi
+    
+    if [ -z "$SESSIONS_KV_ID" ]; then
+        SESSIONS_KV_ID=$(wrangler kv:namespace list | grep "$PROJECT_NAME-sessions" | awk '{print $2}')
+    fi
+    
+    if [ -z "$SETTINGS_KV_ID" ]; then
+        SETTINGS_KV_ID=$(wrangler kv:namespace list | grep "$PROJECT_NAME-settings" | awk '{print $2}')
+    fi
+    
+    # Update wrangler.toml
+    if [ -f "wrangler.toml" ]; then
+        # Backup original
+        cp wrangler.toml wrangler.toml.backup
+        
+        # Update database ID
+        sed -i.tmp "s/database_id = \".*\"/database_id = \"$DB_ID\"/" wrangler.toml
+        
+        # Update KV IDs
+        sed -i.tmp "s/id = \"your-kv-cache-id\"/id = \"$CACHE_KV_ID\"/" wrangler.toml
+        sed -i.tmp "s/id = \"your-kv-sessions-id\"/id = \"$SESSIONS_KV_ID\"/" wrangler.toml  
+        sed -i.tmp "s/id = \"your-kv-settings-id\"/id = \"$SETTINGS_KV_ID\"/" wrangler.toml
+        
+        # Clean up temp files
+        rm -f wrangler.toml.tmp
+        
+        print_success "wrangler.toml updated with resource IDs"
+    else
+        print_error "wrangler.toml not found"
+        exit 1
+    fi
+    
+    cd ..
+    
+    # Generate JWT secret
+    print_status "Generating JWT secret..."
+    JWT_SECRET=$(openssl rand -base64 32 2>/dev/null || node -e "console.log(require('crypto').randomBytes(32).toString('base64'))")
+    
+    # Generate encryption key
+    ENCRYPTION_KEY=$(openssl rand -base64 32 2>/dev/null || node -e "console.log(require('crypto').randomBytes(32).toString('base64'))" | cut -c1-32)
+    
+    print_success "Security keys generated"
+    
+    echo ""
+}
+
+# Initialize database
+init_database() {
+    print_header "INITIALIZING DATABASE"
+    
+    cd $BACKEND_DIR
     
     # Run migrations
-    log_info "Running database migrations..."
-    if wrangler d1 migrations apply enterprise-pos-db --local; then
-        log_success "Local database migrations applied ✓"
+    print_status "Running database migrations..."
+    if [ -f "database/schema.sql" ]; then
+        if wrangler d1 execute "$PROJECT_NAME-db" --file=database/schema.sql >/dev/null 2>&1; then
+            print_success "Database schema created"
+        else
+            print_error "Failed to create database schema"
+            exit 1
+        fi
     else
-        log_error "Failed to apply local migrations"
-        cd ..
-        return 1
+        print_error "Database schema file not found"
+        exit 1
     fi
     
-    # Apply to remote database
-    log_info "Applying migrations to remote database..."
-    if wrangler d1 migrations apply enterprise-pos-db; then
-        log_success "Remote database migrations applied ✓"
+    # Seed database
+    print_status "Seeding database with sample data..."
+    if [ -f "database/seed.sql" ]; then
+        if wrangler d1 execute "$PROJECT_NAME-db" --file=database/seed.sql >/dev/null 2>&1; then
+            print_success "Database seeded with sample data"
+        else
+            print_warning "Failed to seed database (continuing anyway)"
+        fi
     else
-        log_warning "Remote migrations failed. You can run them later with: npm run migrate"
+        print_warning "Database seed file not found"
     fi
     
     cd ..
+    echo ""
 }
 
-# Setup frontend
-setup_frontend() {
-    log_header "🎨 SETTING UP FRONTEND"
+# Deploy backend
+deploy_backend() {
+    print_header "DEPLOYING BACKEND"
     
-    cd frontend
+    cd $BACKEND_DIR
     
-    # Create basic environment file
-    if [ ! -f .env ]; then
-        cp .env.example .env
-        log_success "Frontend environment file created ✓"
+    print_status "Deploying Worker to Cloudflare..."
+    if wrangler publish >/dev/null 2>&1; then
+        WORKER_URL=$(wrangler publish 2>&1 | grep "Published" | cut -d' ' -f2 || echo "")
+        if [ -z "$WORKER_URL" ]; then
+            WORKER_URL="https://$PROJECT_NAME-backend.your-subdomain.workers.dev"
+        fi
+        print_success "Backend deployed to: $WORKER_URL"
+    else
+        print_error "Failed to deploy backend"
+        exit 1
     fi
     
-    # Build frontend for production test
-    log_info "Testing frontend build..."
+    cd ..
+    echo ""
+}
+
+# Deploy frontend
+deploy_frontend() {
+    print_header "DEPLOYING FRONTEND"
+    
+    cd $FRONTEND_DIR
+    
+    # Update API URL in frontend config
+    print_status "Updating frontend configuration..."
+    if [ -f "src/config/api.js" ]; then
+        sed -i.tmp "s|API_URL.*|API_URL: '$WORKER_URL',|" src/config/api.js
+        rm -f src/config/api.js.tmp
+    fi
+    
+    # Build frontend
+    print_status "Building frontend..."
     if npm run build >/dev/null 2>&1; then
-        log_success "Frontend build test passed ✓"
+        print_success "Frontend built successfully"
     else
-        log_warning "Frontend build test failed. You may need to check the configuration."
+        print_error "Failed to build frontend"
+        exit 1
+    fi
+    
+    # Deploy to Cloudflare Pages
+    print_status "Deploying to Cloudflare Pages..."
+    if wrangler pages publish dist --project-name="$PROJECT_NAME-frontend" >/dev/null 2>&1; then
+        FRONTEND_URL="https://$PROJECT_NAME-frontend.pages.dev"
+        print_success "Frontend deployed to: $FRONTEND_URL"
+    else
+        print_error "Failed to deploy frontend"
+        exit 1
     fi
     
     cd ..
+    echo ""
 }
 
-# Create environment files
-create_env_files() {
-    log_header "🔧 CREATING ENVIRONMENT FILES"
+# Create admin user
+create_admin_user() {
+    print_header "SETTING UP ADMIN USER"
     
-    # Backend environment file
-    if [ ! -f backend/.env ]; then
-        log_info "Creating backend environment file..."
-        cat > backend/.env << EOF
-# Company Configuration
-COMPANY_NAME="$COMPANY_NAME"
-COMPANY_EMAIL="$COMPANY_EMAIL"
-SUPPORT_EMAIL="$SUPPORT_EMAIL"
-DEFAULT_CURRENCY="$DEFAULT_CURRENCY"
-DEFAULT_TAX_RATE="$DEFAULT_TAX_RATE"
-TIMEZONE="$TIMEZONE"
+    print_status "Admin user credentials are already seeded in the database:"
+    echo -e "  ${CYAN}Email:${NC} admin@pos.com"
+    echo -e "  ${CYAN}Password:${NC} admin123"
+    echo ""
+    print_warning "Please change the admin password after first login!"
+    echo ""
+}
 
-# Security
-JWT_SECRET="$(openssl rand -base64 32 2>/dev/null || head -c 32 /dev/urandom | base64)"
-ENCRYPTION_KEY="$(openssl rand -base64 32 2>/dev/null || head -c 32 /dev/urandom | base64)"
+# Display final information
+show_final_info() {
+    print_header "SETUP COMPLETE!"
+    
+    echo -e "${GREEN}🎉 Enterprise POS System is now ready!${NC}"
+    echo ""
+    
+    echo -e "${CYAN}📱 Frontend URL:${NC} $FRONTEND_URL"
+    echo -e "${CYAN}🔧 Backend API:${NC} $WORKER_URL"
+    echo ""
+    
+    echo -e "${CYAN}👤 Admin Login:${NC}"
+    echo -e "   Email: admin@pos.com"
+    echo -e "   Password: admin123"
+    echo ""
+    
+    echo -e "${CYAN}📊 Demo Users:${NC}"
+    echo -e "   Staff: john.staff@pos.com / staff123"
+    echo -e "   Cashier: mike.cashier@pos.com / cashier123"
+    echo ""
+    
+    echo -e "${CYAN}🗄️ Database:${NC} $PROJECT_NAME-db (ID: $DB_ID)"
+    echo -e "${CYAN}🗃️ Storage:${NC} $PROJECT_NAME-storage"
+    echo ""
+    
+    echo -e "${YELLOW}📋 Next Steps:${NC}"
+    echo "1. Visit the frontend URL and login as admin"
+    echo "2. Change the default admin password"
+    echo "3. Configure store settings in the admin panel"
+    echo "4. Add your products and customize categories"
+    echo "5. Train your staff on the POS system"
+    echo ""
+    
+    echo -e "${YELLOW}🔧 Development:${NC}"
+    echo "- Run 'cd $BACKEND_DIR && npm run dev' for backend development"
+    echo "- Run 'cd $FRONTEND_DIR && npm run dev' for frontend development"
+    echo "- Use 'wrangler d1 execute $PROJECT_NAME-db --command=\"SELECT * FROM users\"' to query database"
+    echo ""
+    
+    echo -e "${GREEN}✨ Enjoy your new Enterprise POS System!${NC}"
+}
 
-# Environment
-ENVIRONMENT="development"
-DEBUG="true"
-LOG_LEVEL="info"
+# Cleanup function
+cleanup() {
+    print_warning "Setup interrupted. Cleaning up..."
+    # Add cleanup logic here if needed
+    exit 1
+}
 
-# Features
-GAMIFICATION_ENABLED="true"
-AI_ENABLED="true"
-ANALYTICS_ENABLED="true"
-EOF
-        log_success "Backend environment file created ✓"
+# Trap signals for cleanup
+trap cleanup INT TERM
+
+# Main execution
+main() {
+    clear
+    echo -e "${PURPLE}"
+    echo "  ███████ ███    ██ ████████ ███████ ██████  ██████  ██████  ██ ███████ ███████ "
+    echo "  ██      ████   ██    ██    ██      ██   ██ ██   ██ ██   ██ ██ ██      ██      "
+    echo "  █████   ██ ██  ██    ██    █████   ██████  ██████  ██████  ██ ███████ █████   "
+    echo "  ██      ██  ██ ██    ██    ██      ██   ██ ██      ██   ██ ██      ██ ██      "
+    echo "  ███████ ██   ████    ██    ███████ ██   ██ ██      ██   ██ ██ ███████ ███████ "
+    echo ""
+    echo "                     ██████   ██████  ███████     ███████ ██    ██ ███████ ████████ ███████ ███    ███ "
+    echo "                     ██   ██ ██    ██ ██          ██       ██  ██  ██         ██    ██      ████  ████ "
+    echo "                     ██████  ██    ██ ███████     ███████   ████   ███████    ██    █████   ██ ████ ██ "
+    echo "                     ██      ██    ██      ██          ██    ██         ██    ██    ██      ██  ██  ██ "
+    echo "                     ██       ██████  ███████     ███████    ██    ███████    ██    ███████ ██      ██ "
+    echo -e "${NC}"
+    echo ""
+    echo -e "${BLUE}🚀 100% FREE Enterprise POS System on Cloudflare Edge${NC}"
+    echo -e "${BLUE}⚡ React + Workers + D1 + KV + R2 + AI${NC}"
+    echo ""
+    
+    # Ask for confirmation
+    read -p "$(echo -e ${YELLOW}Ready to set up your Enterprise POS System? [Y/n]: ${NC})" -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Nn]$ ]]; then
+        print_status "Setup cancelled by user"
+        exit 0
     fi
     
-    # Frontend environment file
-    if [ ! -f frontend/.env ]; then
-        log_info "Creating frontend environment file..."
-        cat > frontend/.env << EOF
-VITE_API_URL=http://localhost:8787
-VITE_WS_URL=ws://localhost:8787
-VITE_APP_NAME="$COMPANY_NAME POS"
-VITE_COMPANY_NAME="$COMPANY_NAME"
-VITE_SUPPORT_EMAIL="$SUPPORT_EMAIL"
-VITE_VERSION="1.0.0"
-VITE_ENVIRONMENT="development"
-EOF
-        log_success "Frontend environment file created ✓"
-    fi
+    # Run setup steps
+    check_requirements
+    install_dependencies
+    cloudflare_auth
+    create_cloudflare_resources
+    update_config
+    init_database
+    deploy_backend
+    deploy_frontend
+    create_admin_user
+    show_final_info
 }
-
-# Show completion message
-show_completion_message() {
-    log_header "🎉 SETUP COMPLETED SUCCESSFULLY!"
-    
-    echo -e "${GREEN}Your Cloudflare Enterprise POS system is now ready!${NC}"
-    echo ""
-    echo "📋 What was setup:"
-    echo "  ✅ Project structure with 350+ files"
-    echo "  ✅ Cloudflare Workers backend"
-    echo "  ✅ D1 Database with comprehensive schema"
-    echo "  ✅ KV Store for caching"
-    echo "  ✅ R2 Storage for files"
-    echo "  ✅ React frontend with PWA support"
-    echo "  ✅ Environment configuration"
-    echo ""
-    echo "🚀 Next steps:"
-    echo ""
-    echo "1. Seed the database with initial data:"
-    echo "   ${CYAN}npm run seed${NC}"
-    echo ""
-    echo "2. Start development servers:"
-    echo "   ${CYAN}npm run dev${NC}"
-    echo ""
-    echo "3. Access your applications:"
-    echo "   • Backend API: ${BLUE}http://localhost:8787${NC}"
-    echo "   • Frontend: ${BLUE}http://localhost:5173${NC}"
-    echo ""
-    echo "4. Deploy to production:"
-    echo "   ${CYAN}npm run deploy${NC}"
-    echo ""
-    echo "📚 Documentation:"
-    echo "   • Installation: ${BLUE}docs/INSTALLATION.md${NC}"
-    echo "   • API Docs: ${BLUE}docs/API_DOCUMENTATION.md${NC}"
-    echo "   • User Guides: ${BLUE}docs/guides/${NC}"
-    echo ""
-    echo "💡 Tips:"
-    echo "   • Default admin login will be created during seeding"
-    echo "   • Check wrangler.toml for Cloudflare service IDs"
-    echo "   • Use 'wrangler dev' for backend-only development"
-    echo "   • Use 'npm run build' to test production builds"
-    echo ""
-    echo -e "${GREEN}Happy coding! 🎯${NC}"
-    echo ""
-    echo "Support: $SUPPORT_EMAIL"
-    echo "Documentation: https://github.com/yourusername/cloudflare-enterprise-pos"
-}
-
-# Error handling
-trap 'log_error "Setup failed at line $LINENO. Check the error above."; exit 1' ERR
 
 # Run main function
 main "$@"

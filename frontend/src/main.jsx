@@ -1,298 +1,303 @@
-/**
- * ============================================================================
- * MAIN ENTRY POINT - REACT APPLICATION BOOTSTRAP
- * ============================================================================
- * Initializes the React application with all providers and configurations
- */
-
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { ConfigProvider } from 'antd';
-import { HelmetProvider } from 'react-helmet-async';
-import enUS from 'antd/locale/en_US';
-
-// Import main app component
-import App from './App.jsx';
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import { HelmetProvider } from 'react-helmet-async'
+import App from './App.jsx'
 
 // Import global styles
-import './index.css';
+import 'antd/dist/reset.css'
+import './styles/global.css'
+import './styles/animations.css'
 
-// Import providers and contexts
-import { AuthProvider } from '@auth/AuthContext.jsx';
-import { ThemeProvider } from '@contexts/ThemeContext.jsx';
-import { NotificationProvider } from '@contexts/NotificationContext.jsx';
-import { WebSocketProvider } from '@contexts/WebSocketContext.jsx';
-import { CartProvider } from '@contexts/CartContext.jsx';
-import { GameProvider } from '@contexts/GameContext.jsx';
-import { OfflineProvider } from '@contexts/OfflineContext.jsx';
-import { SettingsProvider } from '@contexts/SettingsContext.jsx';
-
-// Import utilities
-import { registerSW } from 'virtual:pwa-register';
-import { ErrorBoundary } from '@components/common/ErrorBoundary.jsx';
-import { GlobalErrorHandler } from '@utils/errorHandler.js';
-import { performanceMonitor } from '@utils/performance.js';
-import { initializeApp } from '@utils/appInitializer.js';
-
-// Configure React Query client
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
-      retry: (failureCount, error) => {
-        // Don't retry on 4xx errors
-        if (error?.response?.status >= 400 && error?.response?.status < 500) {
-          return false;
-        }
-        return failureCount < 3;
-      },
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-      refetchOnWindowFocus: false,
-      refetchOnMount: true,
-      refetchOnReconnect: true,
-    },
-    mutations: {
-      retry: 1,
-      retryDelay: 1000,
-    },
-  },
-});
-
-// Configure Ant Design theme
-const antdTheme = {
-  token: {
-    // Color tokens
-    colorPrimary: import.meta.env.VITE_PRIMARY_COLOR || '#1890ff',
-    colorSuccess: import.meta.env.VITE_SUCCESS_COLOR || '#52c41a',
-    colorWarning: import.meta.env.VITE_WARNING_COLOR || '#faad14',
-    colorError: import.meta.env.VITE_ERROR_COLOR || '#f5222d',
-    
-    // Layout tokens
-    borderRadius: 6,
-    wireframe: false,
-    
-    // Typography tokens
-    fontSize: 14,
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif',
-    
-    // Animation tokens
-    motionDurationSlow: '0.3s',
-    motionDurationMid: '0.2s',
-    motionDurationFast: '0.1s',
-  },
-  components: {
-    // Customize specific components
-    Button: {
-      borderRadius: 6,
-      controlHeight: 32,
-    },
-    Input: {
-      borderRadius: 6,
-      controlHeight: 32,
-    },
-    Card: {
-      borderRadius: 8,
-      paddingLG: 24,
-    },
-    Table: {
-      borderRadius: 8,
-    },
-    Modal: {
-      borderRadius: 8,
-    },
-    Drawer: {
-      borderRadius: 8,
-    },
-  },
-  algorithm: import.meta.env.VITE_DEFAULT_THEME === 'dark' ? 'darkAlgorithm' : 'defaultAlgorithm',
-};
-
-// Service Worker registration
-const updateSW = registerSW({
-  onNeedRefresh() {
-    if (confirm('New content available. Reload to update?')) {
-      updateSW(true);
-    }
-  },
-  onOfflineReady() {
-    console.log('App ready to work offline');
-  },
-  onRegistered(registration) {
-    console.log('SW Registered: ', registration);
-  },
-  onRegisterError(error) {
-    console.log('SW registration error', error);
-  },
-});
-
-// Global error handler setup
-GlobalErrorHandler.init({
-  onError: (error, errorInfo) => {
-    console.error('Global error caught:', error, errorInfo);
-    
-    // Log to external service in production
-    if (import.meta.env.PROD) {
-      // Send to error reporting service
-      // Example: Sentry, LogRocket, etc.
-    }
-  },
-  enableConsoleLog: import.meta.env.DEV,
-  enableNotification: true,
-});
+// PWA registration
+import { registerSW } from 'virtual:pwa-register'
 
 // Performance monitoring
-if (import.meta.env.VITE_ENABLE_PERFORMANCE_MONITORING === 'true') {
-  performanceMonitor.init({
-    trackPageViews: true,
-    trackUserInteractions: true,
-    trackPerformanceMetrics: true,
-    reportInterval: 30000, // 30 seconds
-  });
-}
+import { getCLS, getFID, getFCP, getLCP, getTTFB } from 'web-vitals'
 
-// App initialization
-initializeApp({
-  enableOfflineMode: import.meta.env.VITE_ENABLE_OFFLINE_MODE === 'true',
-  enableNotifications: import.meta.env.VITE_ENABLE_NOTIFICATIONS === 'true',
-  enableAnalytics: import.meta.env.VITE_ENABLE_ANALYTICS === 'true',
+// Error reporting
+window.addEventListener('error', (event) => {
+  console.error('Global error:', event.error)
+  // In production, you might want to send this to an error tracking service
 })
-  .then(() => {
-    console.log('App initialization completed');
-  })
-  .catch((error) => {
-    console.error('App initialization failed:', error);
-  });
 
-// Root component with all providers
-const AppWithProviders = () => (
-  <ErrorBoundary>
-    <HelmetProvider>
-      <BrowserRouter>
-        <QueryClientProvider client={queryClient}>
-          <ConfigProvider 
-            theme={antdTheme}
-            locale={enUS}
-            componentSize="middle"
-          >
-            <ThemeProvider>
-              <AuthProvider>
-                <SettingsProvider>
-                  <NotificationProvider>
-                    <WebSocketProvider>
-                      <OfflineProvider>
-                        <CartProvider>
-                          <GameProvider>
-                            <App />
-                          </GameProvider>
-                        </CartProvider>
-                      </OfflineProvider>
-                    </WebSocketProvider>
-                  </NotificationProvider>
-                </SettingsProvider>
-              </AuthProvider>
-            </ThemeProvider>
-          </ConfigProvider>
-          
-          {/* React Query DevTools - only in development */}
-          {import.meta.env.DEV && (
-            <ReactQueryDevtools 
-              initialIsOpen={false}
-              position="bottom-right"
-            />
-          )}
-        </QueryClientProvider>
-      </BrowserRouter>
-    </HelmetProvider>
-  </ErrorBoundary>
-);
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled promise rejection:', event.reason)
+  // In production, you might want to send this to an error tracking service
+})
 
-// Render the application
-const root = ReactDOM.createRoot(document.getElementById('root'));
-
-// Strict mode for development
-if (import.meta.env.DEV) {
-  root.render(
-    <React.StrictMode>
-      <AppWithProviders />
-    </React.StrictMode>
-  );
-} else {
-  root.render(<AppWithProviders />);
-}
-
-// Hot Module Replacement (HMR) for development
-if (import.meta.hot) {
-  import.meta.hot.accept();
-}
-
-// Development helpers
-if (import.meta.env.DEV) {
-  // Expose useful objects to window for debugging
-  window.__QUERY_CLIENT__ = queryClient;
-  
-  // Performance logging
-  window.addEventListener('load', () => {
-    const perfData = performance.getEntriesByType('navigation')[0];
-    console.group('🚀 Performance Metrics');
-    console.log('DOM Content Loaded:', perfData.domContentLoadedEventEnd - perfData.domContentLoadedEventStart, 'ms');
-    console.log('Load Complete:', perfData.loadEventEnd - perfData.loadEventStart, 'ms');
-    console.log('Total Load Time:', perfData.loadEventEnd - perfData.fetchStart, 'ms');
-    console.groupEnd();
-  });
-  
-  // Memory usage monitoring
-  if ('memory' in performance) {
-    setInterval(() => {
-      const memory = performance.memory;
-      if (memory.usedJSHeapSize > 50 * 1024 * 1024) { // 50MB
-        console.warn('High memory usage detected:', {
-          used: `${Math.round(memory.usedJSHeapSize / 1024 / 1024)}MB`,
-          total: `${Math.round(memory.totalJSHeapSize / 1024 / 1024)}MB`,
-          limit: `${Math.round(memory.jsHeapSizeLimit / 1024 / 1024)}MB`,
-        });
+// PWA Service Worker Registration
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  const updateSW = registerSW({
+    onNeedRefresh() {
+      // Show a prompt to user to refresh the app
+      if (confirm('New content available, reload?')) {
+        updateSW(true)
       }
-    }, 30000); // Check every 30 seconds
+    },
+    onOfflineReady() {
+      console.log('App ready to work offline')
+      // Show notification that app is ready to work offline
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Enterprise POS', {
+          body: 'App is now available offline!',
+          icon: '/icons/icon-192x192.png'
+        })
+      }
+    },
+    onRegisterError(error) {
+      console.error('SW registration error:', error)
+    }
+  })
+}
+
+// Web Vitals Performance Monitoring
+function sendToAnalytics(metric) {
+  // In production, send these metrics to your analytics service
+  console.log('Performance metric:', metric)
+  
+  // Example: Send to Google Analytics
+  // if (window.gtag) {
+  //   window.gtag('event', metric.name, {
+  //     event_category: 'Web Vitals',
+  //     value: Math.round(metric.name === 'CLS' ? metric.value * 1000 : metric.value),
+  //     event_label: metric.id,
+  //     non_interaction: true,
+  //   })
+  // }
+}
+
+// Measure and report Web Vitals
+getCLS(sendToAnalytics)
+getFID(sendToAnalytics)
+getFCP(sendToAnalytics)
+getLCP(sendToAnalytics)
+getTTFB(sendToAnalytics)
+
+// Theme Detection and Management
+function initializeTheme() {
+  const savedTheme = localStorage.getItem('pos-theme')
+  const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  const theme = savedTheme || systemTheme
+  
+  document.documentElement.setAttribute('data-theme', theme)
+  document.documentElement.className = theme
+  
+  return theme
+}
+
+// Initialize theme
+const initialTheme = initializeTheme()
+
+// Listen for system theme changes
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+  if (!localStorage.getItem('pos-theme')) {
+    const newTheme = e.matches ? 'dark' : 'light'
+    document.documentElement.setAttribute('data-theme', newTheme)
+    document.documentElement.className = newTheme
+  }
+})
+
+// Network Status Detection
+function updateOnlineStatus() {
+  const isOnline = navigator.onLine
+  document.documentElement.setAttribute('data-online', isOnline.toString())
+  
+  if (!isOnline) {
+    // Show offline notification
+    console.log('App is now offline')
+  } else {
+    // Show online notification
+    console.log('App is back online')
   }
 }
 
-// Register global event listeners
-window.addEventListener('online', () => {
-  console.log('App is back online');
-  queryClient.refetchQueries();
-});
+window.addEventListener('online', updateOnlineStatus)
+window.addEventListener('offline', updateOnlineStatus)
+updateOnlineStatus()
 
-window.addEventListener('offline', () => {
-  console.log('App is offline');
-});
+// Viewport Height Fix for Mobile
+function setViewportHeight() {
+  const vh = window.innerHeight * 0.01
+  document.documentElement.style.setProperty('--vh', `${vh}px`)
+}
 
-// Prevent default behavior for drag and drop
-document.addEventListener('dragover', (e) => e.preventDefault());
-document.addEventListener('drop', (e) => e.preventDefault());
+window.addEventListener('resize', setViewportHeight)
+setViewportHeight()
 
-// Custom console styling for branding
-if (import.meta.env.DEV) {
-  console.log(
-    '%c🏪 Enterprise POS System %c🚀 Development Mode',
-    'background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); color: white; padding: 8px 12px; border-radius: 4px; font-weight: bold;',
-    'background: #52c41a; color: white; padding: 8px 12px; border-radius: 4px; font-weight: bold; margin-left: 8px;'
-  );
+// Keyboard Navigation Support
+document.addEventListener('keydown', (event) => {
+  // ESC key to close modals/drawers
+  if (event.key === 'Escape') {
+    const escEvent = new CustomEvent('global-escape', { bubbles: true })
+    event.target.dispatchEvent(escEvent)
+  }
   
-  console.log(
-    '%cWelcome to the Enterprise POS System! 🎉\n\n' +
-    '🔧 Available debugging tools:\n' +
-    '• window.__QUERY_CLIENT__ - React Query client\n' +
-    '• React DevTools extension\n' +
-    '• Redux DevTools (if enabled)\n\n' +
-    '📖 Documentation: https://github.com/yourusername/cloudflare-enterprise-pos\n' +
-    '🐛 Issues: https://github.com/yourusername/cloudflare-enterprise-pos/issues\n' +
-    '💬 Support: ' + (import.meta.env.VITE_SUPPORT_EMAIL || 'support@yourcompany.com'),
-    'color: #1890ff; font-size: 12px; line-height: 1.5;'
-  );
+  // Ctrl/Cmd + K for global search
+  if ((event.ctrlKey || event.metaKey) && event.key === 'k') {
+    event.preventDefault()
+    const searchEvent = new CustomEvent('global-search', { bubbles: true })
+    document.dispatchEvent(searchEvent)
+  }
+  
+  // F1 for help
+  if (event.key === 'F1') {
+    event.preventDefault()
+    const helpEvent = new CustomEvent('global-help', { bubbles: true })
+    document.dispatchEvent(helpEvent)
+  }
+})
+
+// Print Support
+window.addEventListener('beforeprint', () => {
+  document.documentElement.setAttribute('data-print', 'true')
+})
+
+window.addEventListener('afterprint', () => {
+  document.documentElement.removeAttribute('data-print')
+})
+
+// Barcode Scanner Support (if available)
+if ('BarcodeDetector' in window) {
+  console.log('Barcode detection supported')
+} else {
+  console.log('Barcode detection not supported, will use camera fallback')
+}
+
+// Camera API Support Detection
+navigator.mediaDevices?.getUserMedia({ video: true })
+  .then((stream) => {
+    stream.getTracks().forEach(track => track.stop())
+    console.log('Camera access available')
+  })
+  .catch(() => {
+    console.log('Camera access not available')
+  })
+
+// Notification Permission Request
+async function requestNotificationPermission() {
+  if ('Notification' in window) {
+    const permission = await Notification.requestPermission()
+    console.log('Notification permission:', permission)
+    return permission === 'granted'
+  }
+  return false
+}
+
+// Request notification permission after user interaction
+document.addEventListener('click', () => {
+  requestNotificationPermission()
+}, { once: true })
+
+// App Installation Prompt
+let deferredPrompt
+window.addEventListener('beforeinstallprompt', (e) => {
+  // Prevent Chrome 67 and earlier from automatically showing the prompt
+  e.preventDefault()
+  // Stash the event so it can be triggered later
+  deferredPrompt = e
+  
+  // Show custom install prompt
+  const installEvent = new CustomEvent('app-install-available', { 
+    detail: { prompt: deferredPrompt } 
+  })
+  window.dispatchEvent(installEvent)
+})
+
+window.addEventListener('appinstalled', () => {
+  console.log('PWA was installed')
+  deferredPrompt = null
+})
+
+// Development Environment Setup
+if (import.meta.env.DEV) {
+  console.log('🚀 Enterprise POS - Development Mode')
+  console.log('Environment:', import.meta.env)
+  
+  // Development tools
+  window.__POS_DEBUG__ = {
+    theme: initialTheme,
+    online: navigator.onLine,
+    version: import.meta.env.VITE_APP_VERSION || '1.0.0'
+  }
+}
+
+// React 18 Root Creation and Error Boundaries
+const container = document.getElementById('root')
+const root = ReactDOM.createRoot(container)
+
+// Development vs Production rendering
+if (import.meta.env.DEV) {
+  // Development mode with React DevTools
+  root.render(
+    <React.StrictMode>
+      <HelmetProvider>
+        <App />
+      </HelmetProvider>
+    </React.StrictMode>
+  )
+} else {
+  // Production mode
+  root.render(
+    <HelmetProvider>
+      <App />
+    </HelmetProvider>
+  )
+}
+
+// Hot Module Replacement for Development
+if (import.meta.hot) {
+  import.meta.hot.accept('./App.jsx', (newApp) => {
+    root.render(
+      <React.StrictMode>
+        <HelmetProvider>
+          <newApp.default />
+        </HelmetProvider>
+      </React.StrictMode>
+    )
+  })
+}
+
+// Global CSS Variables for Dynamic Theming
+document.documentElement.style.setProperty('--app-version', `"${import.meta.env.VITE_APP_VERSION || '1.0.0'}"`)
+
+// Cleanup function for development
+if (import.meta.env.DEV) {
+  window.addEventListener('beforeunload', () => {
+    // Cleanup any development resources
+    console.log('Cleaning up development resources')
+  })
 }
 
 // Export for testing purposes
-export { queryClient, antdTheme };
+export { root }
+
+// Console welcome message
+console.log(`
+🏪 Enterprise POS System
+Version: ${import.meta.env.VITE_APP_VERSION || '1.0.0'}
+Environment: ${import.meta.env.MODE}
+Build: ${import.meta.env.VITE_BUILD_TIME || 'development'}
+
+🚀 Powered by Cloudflare Edge
+⚡ React 18 + Vite + Ant Design
+📱 PWA Ready + Offline Support
+🎮 Staff Gamification + AI Features
+`)
+
+// Performance observer for monitoring
+if ('PerformanceObserver' in window) {
+  try {
+    const observer = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        // Log slow operations in development
+        if (import.meta.env.DEV && entry.duration > 100) {
+          console.warn(`Slow operation detected: ${entry.name} took ${entry.duration}ms`)
+        }
+      }
+    })
+    
+    observer.observe({ entryTypes: ['measure', 'navigation'] })
+  } catch (error) {
+    console.warn('Performance Observer not fully supported:', error)
+  }
+}
