@@ -1,45 +1,393 @@
-name = "enterprise-pos-backend"
+# Cloudflare Workers Configuration for Enterprise POS System
+name = "cloudflare-enterprise-pos-api"
 main = "src/index.js"
-compatibility_date = "2024-09-23"
-compatibility_flags = ["nodejs_compat"]
+compatibility_date = "2024-01-15"
+compatibility_flags = [ "nodejs_compat" ]
 
-[env.production]
-name = "enterprise-pos-backend"
+# Worker settings
+workers_dev = true
+route = { pattern = "your-api.your-subdomain.workers.dev/*", zone_name = "your-domain.com" }
 
-[env.staging]
-name = "enterprise-pos-backend-staging"
+# Build configuration
+[build]
+command = "npm run build"
+cwd = "./"
+watch_dir = "src"
 
-# D1 Database Configuration
-[[d1_databases]]
+# Environment variables for all environments
+[env.production.vars]
+ENVIRONMENT = "production"
+JWT_SECRET = "your-super-secure-jwt-secret-change-this-in-production"
+JWT_EXPIRY = "24h"
+JWT_REFRESH_EXPIRY = "7d"
+MAX_LOGIN_ATTEMPTS = "5"
+LOCKOUT_DURATION = "30"
+SESSION_TIMEOUT = "480"
+RATE_LIMIT_LOGIN = "5"
+RATE_LIMIT_API = "100"
+DEFAULT_CURRENCY = "VND"
+DEFAULT_TAX_RATE = "10"
+LOG_LEVEL = "warn"
+ALLOWED_ORIGINS = "https://your-app.pages.dev,https://your-domain.com"
+FEATURE_USER_REGISTRATION = "true"
+FEATURE_FORGOT_PASSWORD = "true"
+FEATURE_TWO_FACTOR_AUTH = "false"
+FEATURE_AI_FEATURES = "true"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+JWT_SECRET = "staging-jwt-secret-change-this"
+LOG_LEVEL = "info"
+ALLOWED_ORIGINS = "https://staging.your-app.pages.dev,http://localhost:3000"
+
+[env.development.vars]
+ENVIRONMENT = "development"
+JWT_SECRET = "dev-jwt-secret"
+LOG_LEVEL = "debug"
+ALLOWED_ORIGINS = "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000"
+
+# D1 Database bindings
+[[env.production.d1_databases]]
 binding = "DB"
-database_name = "enterprise-pos-db"
-database_id = "aecff177-2deb-4bda-834a-17e4b750441d"
+database_name = "cloudflare-pos-production"
+database_id = "your-production-database-id"
 
-# KV Store Configuration
-[[kv_namespaces]]
-binding = "CACHE"
-id = "46b31b2c6ca449aaa3114d0ebb4fe645"
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "cloudflare-pos-staging"
+database_id = "your-staging-database-id"
 
-# R2 Storage Configuration (Enable R2 in Cloudflare Dashboard first)
-# [[r2_buckets]]
-# binding = "STORAGE"
-# bucket_name = "enterprise-pos-files"
+[[env.development.d1_databases]]
+binding = "DB"
+database_name = "cloudflare-pos-development"
+database_id = "your-development-database-id"
 
-# AI Binding Configuration
-[ai]
+# KV Store bindings for caching
+[[env.production.kv_namespaces]]
+binding = "KV_CACHE"
+id = "your-production-kv-cache-id"
+preview_id = "your-production-kv-cache-preview-id"
+
+[[env.production.kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "your-production-rate-limit-kv-id"
+preview_id = "your-production-rate-limit-preview-id"
+
+[[env.staging.kv_namespaces]]
+binding = "KV_CACHE"
+id = "your-staging-kv-cache-id"
+preview_id = "your-staging-kv-cache-preview-id"
+
+[[env.staging.kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "your-staging-rate-limit-kv-id"
+preview_id = "your-staging-rate-limit-preview-id"
+
+[[env.development.kv_namespaces]]
+binding = "KV_CACHE"
+id = "your-dev-kv-cache-id"
+preview_id = "your-dev-kv-cache-preview-id"
+
+[[env.development.kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "your-dev-rate-limit-kv-id"
+preview_id = "your-dev-rate-limit-preview-id"
+
+# R2 Storage bindings for file uploads
+[[env.production.r2_buckets]]
+binding = "R2_STORAGE"
+bucket_name = "cloudflare-pos-storage-prod"
+
+[[env.staging.r2_buckets]]
+binding = "R2_STORAGE"
+bucket_name = "cloudflare-pos-storage-staging"
+
+[[env.development.r2_buckets]]
+binding = "R2_STORAGE"
+bucket_name = "cloudflare-pos-storage-dev"
+
+# Cloudflare AI bindings
+[env.production.ai]
 binding = "AI"
 
-# Environment Variables
-[vars]
-ENVIRONMENT = "production"
-JWT_SECRET = "your-super-secret-jwt-key-change-in-production"
-ENCRYPTION_KEY = "your-32-char-encryption-key-here!!"
-ADMIN_EMAIL = "admin@yourcompany.com"
-COMPANY_NAME = "Your Company Name"
-API_VERSION = "v1"
-MAX_FILE_SIZE = "10485760"
-SESSION_TIMEOUT = "86400"
+[env.staging.ai]
+binding = "AI"
 
-# Limits Configuration
+[env.development.ai]
+binding = "AI"
+
+# Durable Objects for real-time features
+[[env.production.durable_objects.bindings]]
+name = "REALTIME_SESSIONS"
+class_name = "RealtimeSession"
+script_name = "cloudflare-enterprise-pos-api"
+
+[[env.staging.durable_objects.bindings]]
+name = "REALTIME_SESSIONS"
+class_name = "RealtimeSession"
+script_name = "cloudflare-enterprise-pos-api"
+
+[[env.development.durable_objects.bindings]]
+name = "REALTIME_SESSIONS"
+class_name = "RealtimeSession"
+script_name = "cloudflare-enterprise-pos-api"
+
+# Analytics Engine bindings for tracking
+[[env.production.analytics_engine_datasets]]
+binding = "ANALYTICS"
+dataset = "cloudflare_pos_analytics"
+
+[[env.staging.analytics_engine_datasets]]
+binding = "ANALYTICS"
+dataset = "cloudflare_pos_analytics_staging"
+
+# Secrets (set via wrangler secret put)
+# JWT_SECRET - JWT signing secret
+# DATABASE_ENCRYPTION_KEY - Database encryption key
+# EMAIL_API_KEY - SendGrid/Mailgun API key
+# SMS_API_KEY - Twilio/other SMS provider key
+# PAYMENT_GATEWAY_SECRET - Payment processing secret
+# WEBHOOK_SECRET - Webhook verification secret
+
+# Cron triggers for background tasks
+[[env.production.triggers]]
+cron = "0 0 * * *"  # Daily at midnight
+name = "daily-cleanup"
+
+[[env.production.triggers]]
+cron = "0 */6 * * *"  # Every 6 hours
+name = "cache-warmup"
+
+[[env.production.triggers]]
+cron = "*/15 * * * *"  # Every 15 minutes
+name = "health-check"
+
+# Queue bindings for background processing
+[[env.production.queues.producers]]
+binding = "EMAIL_QUEUE"
+queue = "email-notifications"
+
+[[env.production.queues.producers]]
+binding = "ANALYTICS_QUEUE"
+queue = "analytics-processing"
+
+[[env.production.queues.producers]]
+binding = "SYNC_QUEUE"
+queue = "data-synchronization"
+
+[[env.production.queues.consumers]]
+queue = "email-notifications"
+max_batch_size = 10
+max_batch_timeout = 30
+max_retries = 3
+dead_letter_queue = "email-dlq"
+
+[[env.production.queues.consumers]]
+queue = "analytics-processing"
+max_batch_size = 100
+max_batch_timeout = 60
+max_retries = 5
+
+# Service bindings for microservices architecture
+[[env.production.services]]
+binding = "AUTH_SERVICE"
+service = "cloudflare-pos-auth"
+environment = "production"
+
+[[env.production.services]]
+binding = "PAYMENT_SERVICE"
+service = "cloudflare-pos-payments"
+environment = "production"
+
+[[env.production.services]]
+binding = "NOTIFICATION_SERVICE"
+service = "cloudflare-pos-notifications"
+environment = "production"
+
+# Hyperdrive bindings for external databases (if needed)
+[[env.production.hyperdrive]]
+binding = "EXTERNAL_DB"
+id = "your-hyperdrive-config-id"
+
+# Vectorize bindings for AI/ML features
+[[env.production.vectorize]]
+binding = "VECTORIZE"
+index_name = "cloudflare-pos-embeddings"
+
+# Browser rendering for PDF generation
+[env.production.browser]
+binding = "BROWSER"
+
+# Limits and quotas
 [limits]
-cpu_ms = 30000
+cpu_ms = 50000      # 50 seconds for complex operations
+memory_mb = 128     # 128MB memory limit
+
+# Development settings
+[dev]
+ip = "127.0.0.1"
+port = 8787
+local_protocol = "http"
+upstream_protocol = "https"
+
+# Wrangler configuration
+[wrangler]
+send_metrics = true
+
+# Asset handling
+[site]
+bucket = "./dist"
+entry-point = "workers-site"
+
+# TypeScript configuration
+[typescript]
+# Disable TypeScript checking in wrangler
+# We handle this in our build process
+type_check = false
+
+# Custom build rules
+[[rules]]
+type = "ESModule"
+globs = ["**/*.js", "**/*.mjs"]
+
+[[rules]]
+type = "CommonJS"
+globs = ["**/*.cjs"]
+
+# Environment-specific overrides
+[env.production]
+workers_dev = false
+route = { pattern = "api.your-domain.com/*", zone_name = "your-domain.com" }
+
+[env.production.placement]
+mode = "smart"
+
+[env.staging]
+workers_dev = true
+route = { pattern = "staging-api.your-domain.com/*", zone_name = "your-domain.com" }
+
+[env.development]
+workers_dev = true
+
+# Observability settings
+[env.production.observability]
+enabled = true
+
+# Logpush settings for production
+[env.production.logpush]
+enabled = true
+destination = "s3://your-logs-bucket/cloudflare-pos/"
+ownership_challenge = "your-ownership-challenge"
+
+# Custom domains and certificates
+[env.production.routes]
+pattern = "api.your-domain.com/*"
+custom_domain = true
+zone_name = "your-domain.com"
+
+# Cache settings
+[env.production.cache]
+default_cache_ttl = 3600      # 1 hour
+browser_cache_ttl = 1800      # 30 minutes
+edge_cache_ttl = 7200         # 2 hours
+
+# Security headers
+[env.production.security]
+csp = "default-src 'self'; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self' https:; worker-src 'self' blob:;"
+referrer_policy = "strict-origin-when-cross-origin"
+x_content_type_options = "nosniff"
+x_frame_options = "DENY"
+x_xss_protection = "1; mode=block"
+
+# Rate limiting configuration
+[env.production.rate_limiting]
+threshold = 1000              # Requests per minute
+period = 60                   # Time window in seconds
+action = "challenge"          # Action when threshold exceeded
+
+# DDoS protection
+[env.production.ddos_protection]
+enabled = true
+sensitivity = "medium"
+
+# Bot management
+[env.production.bot_management]
+enabled = true
+score_threshold = 30
+
+# Image optimization
+[env.production.images]
+enabled = true
+quality = 85
+format = "auto"
+metadata = "none"
+
+# Speed optimizations
+[env.production.speed]
+minification = true
+automatic_https_rewrites = true
+rocket_loader = true
+mirage = true
+polish = "lossless"
+
+# Analytics and monitoring
+[env.production.analytics]
+web_analytics = true
+web_analytics_token = "your-web-analytics-token"
+
+# Email routing (if using Cloudflare Email Routing)
+[env.production.email]
+enabled = true
+dmarc_policy = "quarantine"
+spf_record = "v=spf1 include:_spf.mx.cloudflare.net ~all"
+
+# Zero Trust settings
+[env.production.zero_trust]
+enabled = true
+access_application_id = "your-access-app-id"
+
+# Load balancing (if using multiple origins)
+[env.production.load_balancing]
+enabled = true
+pool_id = "your-load-balancer-pool-id"
+fallback_pool_id = "your-fallback-pool-id"
+
+# Custom error pages
+[env.production.error_pages]
+enabled = true
+"404" = "https://your-domain.com/errors/404.html"
+"500" = "https://your-domain.com/errors/500.html"
+"502" = "https://your-domain.com/errors/502.html"
+"503" = "https://your-domain.com/errors/503.html"
+
+# Firewall rules
+[env.production.firewall]
+enabled = true
+rules = [
+    {
+        action = "allow",
+        description = "Allow API access",
+        expression = "(http.request.uri.path matches \"^/api/.*\")"
+    },
+    {
+        action = "block",
+        description = "Block admin access from non-office IPs",
+        expression = "(http.request.uri.path matches \"^/admin/.*\") and (ip.src ne 203.0.113.0/24)"
+    }
+]
+
+# Page Rules
+[env.production.page_rules]
+rules = [
+    {
+        targets = [{ target = "url", constraint = { matches = "api.your-domain.com/health" } }],
+        actions = [{ id = "cache_level", value = "bypass" }]
+    },
+    {
+        targets = [{ target = "url", constraint = { matches = "api.your-domain.com/static/*" } }],
+        actions = [
+            { id = "cache_level", value = "cache_everything" },
+            { id = "edge_cache_ttl", value = 86400 }
+        ]
+    }
+]

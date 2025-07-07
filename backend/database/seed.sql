@@ -1,354 +1,346 @@
--- =====================================================
--- ENTERPRISE POS SYSTEM - SEED DATA
--- Sample data for development and demo purposes
--- =====================================================
+-- ================================
+-- ENTERPRISE POS DATABASE SEED v2.0.0
+-- Sample data for testing and demo
+-- ================================
 
--- Clear existing data (optional - uncomment if needed)
--- DELETE FROM activity_logs;
--- DELETE FROM inventory_logs;
--- DELETE FROM order_items;
--- DELETE FROM orders;
--- DELETE FROM achievements;
--- DELETE FROM staff_stats;
--- DELETE FROM customers;
--- DELETE FROM products;
--- DELETE FROM categories;
--- DELETE FROM badges;
--- DELETE FROM challenges;
--- DELETE FROM payment_methods;
--- DELETE FROM settings;
--- DELETE FROM users;
+-- Clear existing data (be careful in production!)
+-- DELETE FROM organizations;
 
--- =====================================================
--- 1. USERS (Admin, Staff, Cashiers)
--- =====================================================
+-- ================================
+-- 1. SAMPLE ORGANIZATION & STORES
+-- ================================
 
-INSERT INTO users (id, email, password_hash, name, role, phone, avatar_url, is_active, created_at, updated_at) VALUES
--- Admin user (password: admin123)
-('admin-001', 'admin@pos.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewTyA0yBXjAMd4aK', 'Admin User', 'admin', '+1234567890', '/avatars/admin.jpg', 1, datetime('now', '-30 days'), datetime('now')),
+INSERT INTO organizations (name, slug, description, phone, email, address, city, country, settings) VALUES 
+('TechMart Vietnam', 'techmart-vn', 'Leading technology retailer in Vietnam', '+84-28-1234-5678', 'info@techmart.vn', '123 Nguyen Hue Street', 'Ho Chi Minh City', 'VN', '{"features":{"ai_enabled":true,"gamification":true,"loyalty":true}}');
 
--- Staff members (password: staff123)
-('staff-001', 'john.staff@pos.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewTyA0yBXjAMd4aK', 'John Smith', 'staff', '+1234567891', '/avatars/john.jpg', 1, datetime('now', '-25 days'), datetime('now')),
-('staff-002', 'jane.staff@pos.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewTyA0yBXjAMd4aK', 'Jane Wilson', 'staff', '+1234567892', '/avatars/jane.jpg', 1, datetime('now', '-20 days'), datetime('now')),
+INSERT INTO stores (organization_id, name, code, address, city, manager_id, opening_hours, settings) VALUES 
+(1, 'TechMart District 1', 'TM-D1', '123 Nguyen Hue Street, District 1', 'Ho Chi Minh City', 2, '{"monday":"09:00-22:00","tuesday":"09:00-22:00","wednesday":"09:00-22:00","thursday":"09:00-22:00","friday":"09:00-22:00","saturday":"09:00-23:00","sunday":"09:00-23:00"}', '{"pos_layout":"grid","receipt_footer":"Thank you for shopping at TechMart!"}'),
+(1, 'TechMart District 3', 'TM-D3', '456 Vo Van Tan Street, District 3', 'Ho Chi Minh City', 3, '{"monday":"09:00-22:00","tuesday":"09:00-22:00","wednesday":"09:00-22:00","thursday":"09:00-22:00","friday":"09:00-22:00","saturday":"09:00-23:00","sunday":"09:00-23:00"}', '{"pos_layout":"list","receipt_footer":"Visit us again soon!"}'),
+(1, 'TechMart District 7', 'TM-D7', '789 Nguyen Thi Thap Street, District 7', 'Ho Chi Minh City', 4, '{"monday":"10:00-22:00","tuesday":"10:00-22:00","wednesday":"10:00-22:00","thursday":"10:00-22:00","friday":"10:00-22:00","saturday":"10:00-23:00","sunday":"10:00-23:00"}', '{"pos_layout":"grid","receipt_footer":"TechMart - Technology for Everyone"}');
 
--- Cashiers (password: cashier123)
-('cashier-001', 'mike.cashier@pos.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewTyA0yBXjAMd4aK', 'Mike Johnson', 'cashier', '+1234567893', '/avatars/mike.jpg', 1, datetime('now', '-15 days'), datetime('now')),
-('cashier-002', 'sarah.cashier@pos.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewTyA0yBXjAMd4aK', 'Sarah Davis', 'cashier', '+1234567894', '/avatars/sarah.jpg', 1, datetime('now', '-10 days'), datetime('now')),
-('cashier-003', 'tom.cashier@pos.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewTyA0yBXjAMd4aK', 'Tom Brown', 'cashier', '+1234567895', '/avatars/tom.jpg', 1, datetime('now', '-5 days'), datetime('now'));
+-- ================================
+-- 2. SAMPLE USERS (Staff Members)
+-- ================================
 
--- =====================================================
--- 2. CATEGORIES
--- =====================================================
+-- Super Admin
+INSERT INTO users (organization_id, store_id, username, email, password_hash, first_name, last_name, phone, role, employee_id, hire_date, settings) VALUES 
+(1, 1, 'admin', 'admin@pos.com', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LgBz5AhQ7cXJZqBXK', 'Admin', 'User', '+84-901-234-567', 'super_admin', 'EMP001', '2024-01-01', '{"theme":"dark","notifications":true}');
 
-INSERT INTO categories (id, name, description, icon, color, sort_order, is_active, created_at, updated_at) VALUES
-('cat-001', 'Electronics', 'Smartphones, tablets, accessories', 'mobile', '#1890ff', 1, 1, datetime('now', '-30 days'), datetime('now')),
-('cat-002', 'Clothing', 'T-shirts, jeans, shoes, accessories', 'appstore', '#52c41a', 2, 1, datetime('now', '-30 days'), datetime('now')),
-('cat-003', 'Food & Beverages', 'Snacks, drinks, fresh food', 'coffee', '#fa8c16', 3, 1, datetime('now', '-30 days'), datetime('now')),
-('cat-004', 'Books & Stationery', 'Books, notebooks, pens', 'book', '#722ed1', 4, 1, datetime('now', '-30 days'), datetime('now')),
-('cat-005', 'Home & Garden', 'Furniture, decorations, tools', 'home', '#eb2f96', 5, 1, datetime('now', '-30 days'), datetime('now')),
-('cat-006', 'Health & Beauty', 'Cosmetics, personal care', 'heart', '#f5222d', 6, 1, datetime('now', '-30 days'), datetime('now'));
+-- Store Managers
+INSERT INTO users (organization_id, store_id, username, email, password_hash, first_name, last_name, phone, role, employee_id, hire_date, salary, settings) VALUES 
+(1, 1, 'manager1', 'manager1@techmart.vn', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LgBz5AhQ7cXJZqBXK', 'Nguyen', 'Van Manager', '+84-901-234-568', 'manager', 'EMP002', '2024-01-01', 25000000, '{"dashboard_layout":"advanced","email_notifications":true}'),
+(1, 2, 'manager2', 'manager2@techmart.vn', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LgBz5AhQ7cXJZqBXK', 'Tran', 'Thi Manager', '+84-901-234-569', 'manager', 'EMP003', '2024-01-01', 25000000, '{"dashboard_layout":"simple","email_notifications":true}'),
+(1, 3, 'manager3', 'manager3@techmart.vn', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LgBz5AhQ7cXJZqBXK', 'Le', 'Van Manager', '+84-901-234-570', 'manager', 'EMP004', '2024-01-01', 25000000, '{"dashboard_layout":"advanced","email_notifications":false}');
 
--- =====================================================
--- 3. PRODUCTS
--- =====================================================
+-- Shift Supervisors
+INSERT INTO users (organization_id, store_id, username, email, password_hash, first_name, last_name, phone, role, employee_id, hire_date, salary, commission_rate, settings) VALUES 
+(1, 1, 'supervisor1', 'supervisor1@techmart.vn', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LgBz5AhQ7cXJZqBXK', 'Pham', 'Van Supervisor', '+84-901-234-571', 'shift_supervisor', 'EMP005', '2024-01-15', 18000000, 0.02, '{"pos_shortcuts":["products","customers","reports"]}'),
+(1, 2, 'supervisor2', 'supervisor2@techmart.vn', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LgBz5AhQ7cXJZqBXK', 'Hoang', 'Thi Supervisor', '+84-901-234-572', 'shift_supervisor', 'EMP006', '2024-01-15', 18000000, 0.02, '{"pos_shortcuts":["sales","inventory","customers"]}');
 
-INSERT INTO products (id, sku, name, description, category_id, price, cost_price, stock_quantity, reorder_level, barcode, image_url, weight, tax_rate, is_active, created_at, updated_at) VALUES
--- Electronics
-('prod-001', 'IPH15-128', 'iPhone 15 128GB', 'Latest iPhone with advanced features', 'cat-001', 999.99, 750.00, 25, 5, '1234567890123', '/products/iphone15.jpg', 0.174, 10.00, 1, datetime('now', '-25 days'), datetime('now')),
-('prod-002', 'GAL-S24-256', 'Samsung Galaxy S24 256GB', 'Premium Android smartphone', 'cat-001', 899.99, 650.00, 30, 5, '1234567890124', '/products/galaxy-s24.jpg', 0.168, 10.00, 1, datetime('now', '-25 days'), datetime('now')),
-('prod-003', 'IPD-AIR-5', 'iPad Air 5th Gen', 'Powerful tablet for work and play', 'cat-001', 599.99, 450.00, 15, 3, '1234567890125', '/products/ipad-air.jpg', 0.461, 10.00, 1, datetime('now', '-25 days'), datetime('now')),
-('prod-004', 'APWT-SE2', 'Apple Watch SE 2nd Gen', 'Fitness and health tracking', 'cat-001', 299.99, 220.00, 40, 10, '1234567890126', '/products/apple-watch-se.jpg', 0.033, 10.00, 1, datetime('now', '-25 days'), datetime('now')),
+-- Senior Cashiers
+INSERT INTO users (organization_id, store_id, username, email, password_hash, first_name, last_name, phone, role, employee_id, hire_date, salary, commission_rate, settings) VALUES 
+(1, 1, 'cashier1', 'cashier1@techmart.vn', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LgBz5AhQ7cXJZqBXK', 'Vo', 'Thi Senior', '+84-901-234-573', 'senior_cashier', 'EMP007', '2024-02-01', 15000000, 0.015, '{"pos_layout":"compact","quick_actions":true}'),
+(1, 2, 'cashier2', 'cashier2@techmart.vn', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LgBz5AhQ7cXJZqBXK', 'Dang', 'Van Senior', '+84-901-234-574', 'senior_cashier', 'EMP008', '2024-02-01', 15000000, 0.015, '{"pos_layout":"standard","receipt_printer":"thermal"}');
 
--- Clothing
-('prod-005', 'TSH-BLU-L', 'Blue Cotton T-Shirt (L)', 'Comfortable cotton t-shirt', 'cat-002', 24.99, 12.00, 100, 20, '1234567890127', '/products/blue-tshirt.jpg', 0.200, 8.25, 1, datetime('now', '-20 days'), datetime('now')),
-('prod-006', 'JEA-SKN-32', 'Skinny Jeans 32"', 'Modern fit denim jeans', 'cat-002', 79.99, 40.00, 60, 15, '1234567890128', '/products/skinny-jeans.jpg', 0.600, 8.25, 1, datetime('now', '-20 days'), datetime('now')),
-('prod-007', 'SNK-RUN-9', 'Running Sneakers Size 9', 'Lightweight running shoes', 'cat-002', 129.99, 70.00, 45, 10, '1234567890129', '/products/running-sneakers.jpg', 0.800, 8.25, 1, datetime('now', '-20 days'), datetime('now')),
+-- Regular Cashiers
+INSERT INTO users (organization_id, store_id, username, email, password_hash, first_name, last_name, phone, role, employee_id, hire_date, salary, commission_rate, settings) VALUES 
+(1, 1, 'cashier3', 'cashier3@techmart.vn', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LgBz5AhQ7cXJZqBXK', 'Bui', 'Thi Cashier', '+84-901-234-575', 'cashier', 'EMP009', '2024-03-01', 12000000, 0.01, '{"training_mode":false,"daily_target":500000}'),
+(1, 1, 'cashier4', 'cashier4@techmart.vn', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LgBz5AhQ7cXJZqBXK', 'Do', 'Van Cashier', '+84-901-234-576', 'cashier', 'EMP010', '2024-03-01', 12000000, 0.01, '{"training_mode":false,"daily_target":500000}'),
+(1, 2, 'cashier5', 'cashier5@techmart.vn', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LgBz5AhQ7cXJZqBXK', 'Ngo', 'Thi Cashier', '+84-901-234-577', 'cashier', 'EMP011', '2024-03-15', 12000000, 0.01, '{"training_mode":true,"daily_target":300000}');
 
--- Food & Beverages
-('prod-008', 'COK-CAN-355', 'Coca Cola 355ml', 'Classic soft drink', 'cat-003', 1.99, 0.80, 200, 50, '1234567890130', '/products/coca-cola.jpg', 0.355, 5.00, 1, datetime('now', '-15 days'), datetime('now')),
-('prod-009', 'CHI-BBQ-200', 'BBQ Chips 200g', 'Crispy barbecue flavored chips', 'cat-003', 3.49, 1.50, 150, 30, '1234567890131', '/products/bbq-chips.jpg', 0.200, 5.00, 1, datetime('now', '-15 days'), datetime('now')),
-('prod-010', 'SAN-HAM-250', 'Ham Sandwich 250g', 'Fresh ham and cheese sandwich', 'cat-003', 8.99, 4.50, 25, 10, '1234567890132', '/products/ham-sandwich.jpg', 0.250, 5.00, 1, datetime('now', '-15 days'), datetime('now')),
+-- Sales Staff
+INSERT INTO users (organization_id, store_id, username, email, password_hash, first_name, last_name, phone, role, employee_id, hire_date, salary, commission_rate, settings) VALUES 
+(1, 1, 'sales1', 'sales1@techmart.vn', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LgBz5AhQ7cXJZqBXK', 'Ly', 'Van Sales', '+84-901-234-578', 'sales_staff', 'EMP012', '2024-02-15', 13000000, 0.03, '{"specialization":"smartphones","monthly_target":50000000}'),
+(1, 1, 'sales2', 'sales2@techmart.vn', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LgBz5AhQ7cXJZqBXK', 'Duong', 'Thi Sales', '+84-901-234-579', 'sales_staff', 'EMP013', '2024-02-15', 13000000, 0.03, '{"specialization":"laptops","monthly_target":60000000}');
 
--- Books & Stationery
-('prod-011', 'NOT-A4-100', 'A4 Notebook 100 pages', 'Lined notebook for notes', 'cat-004', 12.99, 6.00, 80, 20, '1234567890133', '/products/a4-notebook.jpg', 0.300, 0.00, 1, datetime('now', '-10 days'), datetime('now')),
-('prod-012', 'PEN-BLU-10', 'Blue Ballpoint Pen (10 pack)', 'Smooth writing ballpoint pens', 'cat-004', 9.99, 4.50, 120, 25, '1234567890134', '/products/blue-pens.jpg', 0.100, 0.00, 1, datetime('now', '-10 days'), datetime('now')),
-('prod-013', 'BOK-FIC-001', 'Mystery Novel "The Secret"', 'Bestselling mystery novel', 'cat-004', 19.99, 10.00, 35, 8, '1234567890135', '/products/mystery-novel.jpg', 0.400, 0.00, 1, datetime('now', '-10 days'), datetime('now')),
+-- Update store managers
+UPDATE stores SET manager_id = 2 WHERE id = 1;
+UPDATE stores SET manager_id = 3 WHERE id = 2;
+UPDATE stores SET manager_id = 4 WHERE id = 3;
 
--- Home & Garden
-('prod-014', 'CAN-LED-15W', 'LED Candle 15W', 'Energy efficient LED candle', 'cat-005', 34.99, 18.00, 50, 12, '1234567890136', '/products/led-candle.jpg', 0.250, 8.25, 1, datetime('now', '-8 days'), datetime('now')),
-('prod-015', 'PLT-SUC-SM', 'Small Succulent Plant', 'Low maintenance succulent', 'cat-005', 14.99, 7.50, 75, 15, '1234567890137', '/products/succulent.jpg', 0.500, 0.00, 1, datetime('now', '-8 days'), datetime('now')),
-('prod-016', 'CUS-VEL-BLU', 'Blue Velvet Cushion', 'Decorative throw cushion', 'cat-005', 29.99, 15.00, 40, 8, '1234567890138', '/products/blue-cushion.jpg', 0.800, 8.25, 1, datetime('now', '-8 days'), datetime('now')),
+-- ================================
+-- 3. PRODUCT CATEGORIES & BRANDS
+-- ================================
 
--- Health & Beauty
-('prod-017', 'SHP-ORG-500', 'Organic Shampoo 500ml', 'Natural organic hair care', 'cat-006', 18.99, 9.50, 65, 15, '1234567890139', '/products/organic-shampoo.jpg', 0.500, 8.25, 1, datetime('now', '-5 days'), datetime('now')),
-('prod-018', 'LIP-PIN-RED', 'Red Lipstick', 'Long-lasting matte lipstick', 'cat-006', 24.99, 12.00, 85, 20, '1234567890140', '/products/red-lipstick.jpg', 0.050, 8.25, 1, datetime('now', '-5 days'), datetime('now')),
-('prod-019', 'FAC-CRM-50', 'Face Cream 50ml', 'Anti-aging moisturizing cream', 'cat-006', 39.99, 20.00, 55, 12, '1234567890141', '/products/face-cream.jpg', 0.080, 8.25, 1, datetime('now', '-5 days'), datetime('now')),
-('prod-020', 'PER-SPR-100', 'Perfume Spray 100ml', 'Elegant floral fragrance', 'cat-006', 89.99, 45.00, 30, 8, '1234567890142', '/products/perfume.jpg', 0.150, 8.25, 1, datetime('now', '-5 days'), datetime('now'));
+INSERT INTO categories (organization_id, name, description, sort_order) VALUES 
+(1, 'Smartphones', 'Mobile phones and accessories', 1),
+(1, 'Laptops', 'Portable computers and notebooks', 2),
+(1, 'Tablets', 'Tablet computers and e-readers', 3),
+(1, 'Audio', 'Headphones, speakers, and audio devices', 4),
+(1, 'Gaming', 'Gaming consoles, controllers, and accessories', 5),
+(1, 'Accessories', 'Phone cases, chargers, and cables', 6),
+(1, 'Smart Home', 'IoT devices and smart home products', 7),
+(1, 'Computers', 'Desktop computers and components', 8);
 
--- =====================================================
--- 4. CUSTOMERS (CRM Data)
--- =====================================================
+INSERT INTO brands (organization_id, name, description) VALUES 
+(1, 'Apple', 'Premium technology products'),
+(1, 'Samsung', 'Innovative mobile and electronic devices'),
+(1, 'Xiaomi', 'High-quality affordable technology'),
+(1, 'OPPO', 'Smartphone and audio technology'),
+(1, 'Vivo', 'Mobile photography and innovation'),
+(1, 'Huawei', 'Telecommunications and consumer electronics'),
+(1, 'Dell', 'Personal computers and enterprise solutions'),
+(1, 'HP', 'Computing and printing technologies'),
+(1, 'Asus', 'Computer hardware and electronics'),
+(1, 'Lenovo', 'Personal computers and mobile devices'),
+(1, 'Sony', 'Audio, gaming, and entertainment electronics'),
+(1, 'JBL', 'Audio equipment and speakers'),
+(1, 'Anker', 'Charging technology and accessories'),
+(1, 'Baseus', 'Mobile accessories and charging solutions');
 
-INSERT INTO customers (id, name, email, phone, address, city, postal_code, date_of_birth, loyalty_points, total_spent, visit_count, last_visit, is_active, created_at, updated_at) VALUES
-('cust-001', 'Alice Johnson', 'alice.johnson@email.com', '+1555123001', '123 Main St', 'New York', '10001', '1985-03-15', 150, 2450.75, 12, datetime('now', '-2 days'), 1, datetime('now', '-60 days'), datetime('now', '-2 days')),
-('cust-002', 'Bob Williams', 'bob.williams@email.com', '+1555123002', '456 Oak Ave', 'Los Angeles', '90001', '1990-07-22', 85, 1320.50, 8, datetime('now', '-5 days'), 1, datetime('now', '-45 days'), datetime('now', '-5 days')),
-('cust-003', 'Carol Brown', 'carol.brown@email.com', '+1555123003', '789 Pine St', 'Chicago', '60001', '1988-11-08', 220, 3750.25, 15, datetime('now', '-1 day'), 1, datetime('now', '-90 days'), datetime('now', '-1 day')),
-('cust-004', 'David Miller', 'david.miller@email.com', '+1555123004', '321 Elm St', 'Houston', '77001', '1975-05-30', 45, 865.00, 5, datetime('now', '-10 days'), 1, datetime('now', '-30 days'), datetime('now', '-10 days')),
-('cust-005', 'Emma Davis', 'emma.davis@email.com', '+1555123005', '654 Maple Dr', 'Phoenix', '85001', '1992-09-12', 95, 1580.75, 9, datetime('now', '-3 days'), 1, datetime('now', '-75 days'), datetime('now', '-3 days')),
-('cust-006', 'Frank Wilson', 'frank.wilson@email.com', '+1555123006', '987 Cedar Ln', 'Philadelphia', '19001', '1980-12-25', 180, 2890.50, 11, datetime('now', '-7 days'), 1, datetime('now', '-120 days'), datetime('now', '-7 days')),
-('cust-007', 'Grace Taylor', 'grace.taylor@email.com', '+1555123007', '147 Birch St', 'San Antonio', '78001', '1995-01-18', 65, 1125.25, 6, datetime('now', '-14 days'), 1, datetime('now', '-50 days'), datetime('now', '-14 days')),
-('cust-008', 'Henry Anderson', 'henry.anderson@email.com', '+1555123008', '258 Spruce Ave', 'San Diego', '92001', '1987-04-03', 125, 2150.00, 10, datetime('now', '-4 days'), 1, datetime('now', '-80 days'), datetime('now', '-4 days')),
-('cust-009', 'Ivy Martinez', 'ivy.martinez@email.com', '+1555123009', '369 Willow Rd', 'Dallas', '75001', '1993-08-27', 35, 685.50, 4, datetime('now', '-20 days'), 1, datetime('now', '-25 days'), datetime('now', '-20 days')),
-('cust-010', 'Jack Thompson', 'jack.thompson@email.com', '+1555123010', '741 Ash St', 'San Jose', '95001', '1982-06-14', 200, 3250.75, 14, datetime('now', '-6 days'), 1, datetime('now', '-100 days'), datetime('now', '-6 days'));
+INSERT INTO suppliers (organization_id, name, contact_person, email, phone, address, payment_terms) VALUES 
+(1, 'Tech Distribution Co.', 'Nguyen Van Supplier', 'supplier1@techdist.vn', '+84-28-7777-8888', '789 Le Lai Street, District 1, HCMC', 'Net 30'),
+(1, 'Mobile World Wholesale', 'Tran Thi Wholesale', 'wholesale@mobileworld.vn', '+84-28-9999-0000', '456 Cach Mang Thang 8, District 3, HCMC', 'Net 15'),
+(1, 'Electronics Import Ltd', 'Le Van Import', 'import@electronics.vn', '+84-28-1111-2222', '123 Ton Duc Thang, District 1, HCMC', 'Net 45');
 
--- =====================================================
--- 5. PAYMENT METHODS
--- =====================================================
+-- ================================
+-- 4. SAMPLE PRODUCTS
+-- ================================
 
-INSERT INTO payment_methods (id, name, type, is_active, processing_fee, icon, settings, created_at) VALUES
-('pay-001', 'Cash', 'cash', 1, 0.00, 'dollar', '{}', datetime('now', '-30 days')),
-('pay-002', 'Credit Card', 'card', 1, 2.5, 'credit-card', '{"accepted_cards": ["visa", "mastercard", "amex"]}', datetime('now', '-30 days')),
-('pay-003', 'Debit Card', 'card', 1, 1.5, 'credit-card', '{"accepted_cards": ["visa", "mastercard"]}', datetime('now', '-30 days')),
-('pay-004', 'Apple Pay', 'digital_wallet', 1, 2.0, 'apple', '{"supported_devices": ["iphone", "ipad", "apple_watch"]}', datetime('now', '-30 days')),
-('pay-005', 'Google Pay', 'digital_wallet', 1, 2.0, 'google', '{"supported_devices": ["android"]}', datetime('now', '-30 days')),
-('pay-006', 'Loyalty Points', 'loyalty_points', 1, 0.00, 'star', '{"points_per_dollar": 100}', datetime('now', '-30 days'));
+-- Smartphones
+INSERT INTO products (organization_id, category_id, brand_id, supplier_id, sku, barcode, name, description, cost_price, selling_price, compare_price, weight, min_stock_level, attributes, tags) VALUES 
+(1, 1, 1, 1, 'IPH15-128-BK', '1234567890123', 'iPhone 15 128GB Black', 'Latest iPhone with A17 Pro chip and advanced camera system', 18000000, 25000000, 27000000, 171, 5, '{"color":"Black","storage":"128GB","network":"5G"}', '["flagship","5g","wireless-charging"]'),
+(1, 1, 1, 1, 'IPH15-256-BL', '1234567890124', 'iPhone 15 256GB Blue', 'Latest iPhone with A17 Pro chip, 256GB storage', 20000000, 28000000, 30000000, 171, 5, '{"color":"Blue","storage":"256GB","network":"5G"}', '["flagship","5g","wireless-charging"]'),
+(1, 1, 2, 1, 'SGS24-128-GY', '2345678901234', 'Samsung Galaxy S24 128GB Gray', 'Premium Android smartphone with advanced AI features', 15000000, 22000000, 24000000, 167, 8, '{"color":"Gray","storage":"128GB","network":"5G"}', '["android","5g","ai-camera"]'),
+(1, 1, 3, 2, 'XMI14-256-BK', '3456789012345', 'Xiaomi 14 256GB Black', 'Flagship Xiaomi with Snapdragon 8 Gen 3', 12000000, 18000000, 20000000, 193, 10, '{"color":"Black","storage":"256GB","network":"5G"}', '["xiaomi","performance","value"]'),
+(1, 1, 4, 2, 'OPF5-128-GR', '4567890123456', 'OPPO Find X5 128GB Green', 'Photography-focused smartphone with premium design', 11000000, 16000000, 18000000, 196, 8, '{"color":"Green","storage":"128GB","network":"5G"}', '["camera","design","oppo"]'),
+(1, 1, 5, 2, 'VIV30-256-PL', '5678901234567', 'Vivo V30 256GB Purple', 'Selfie-centric phone with elegant design', 9000000, 14000000, 16000000, 186, 10, '{"color":"Purple","storage":"256GB","network":"5G"}', '["selfie","design","vivo"]');
 
--- =====================================================
--- 6. STAFF STATISTICS (Gamification)
--- =====================================================
+-- Laptops
+INSERT INTO products (organization_id, category_id, brand_id, supplier_id, sku, barcode, name, description, cost_price, selling_price, compare_price, weight, min_stock_level, attributes, tags) VALUES 
+(1, 2, 1, 1, 'MBA-M2-256-SV', '6789012345678', 'MacBook Air M2 256GB Silver', '13-inch MacBook Air with M2 chip and stunning display', 22000000, 28000000, 30000000, 1240, 3, '{"processor":"M2","storage":"256GB","screen":"13-inch","color":"Silver"}', '["apple","laptop","portable"]'),
+(1, 2, 7, 3, 'DLL-XPS13-512', '7890123456789', 'Dell XPS 13 512GB', 'Ultra-portable laptop with Intel Core i7', 20000000, 26000000, 28000000, 1200, 3, '{"processor":"Intel i7","storage":"512GB","screen":"13-inch","color":"Platinum"}', '["dell","business","portable"]'),
+(1, 2, 8, 3, 'HP-SPEC-1TB', '8901234567890', 'HP Spectre x360 1TB', 'Convertible laptop with premium design', 25000000, 32000000, 35000000, 1300, 2, '{"processor":"Intel i7","storage":"1TB","screen":"14-inch","color":"Dark Blue"}', '["hp","convertible","premium"]'),
+(1, 2, 9, 3, 'ASUS-ZB14-512', '9012345678901', 'ASUS ZenBook 14 512GB', 'Lightweight laptop for productivity', 18000000, 24000000, 26000000, 1100, 4, '{"processor":"AMD Ryzen 7","storage":"512GB","screen":"14-inch","color":"Pine Gray"}', '["asus","amd","productivity"]');
 
-INSERT INTO staff_stats (id, user_id, total_sales, total_orders, total_points, current_streak, best_streak, level, experience_points, commission_earned, last_sale, created_at, updated_at) VALUES
-('stat-001', 'staff-001', 15850.75, 89, 1585, 7, 12, 5, 2450, 317.02, datetime('now', '-1 day'), datetime('now', '-25 days'), datetime('now', '-1 day')),
-('stat-002', 'staff-002', 12430.50, 67, 1243, 4, 8, 4, 1890, 248.61, datetime('now', '-2 days'), datetime('now', '-20 days'), datetime('now', '-2 days')),
-('stat-003', 'cashier-001', 8965.25, 145, 896, 12, 15, 3, 1420, 179.31, datetime('now', '-0.5 days'), datetime('now', '-15 days'), datetime('now', '-0.5 days')),
-('stat-004', 'cashier-002', 7820.00, 128, 782, 8, 10, 3, 1280, 156.40, datetime('now', '-1.5 days'), datetime('now', '-10 days'), datetime('now', '-1.5 days')),
-('stat-005', 'cashier-003', 5640.75, 98, 564, 3, 6, 2, 945, 112.82, datetime('now', '-3 days'), datetime('now', '-5 days'), datetime('now', '-3 days'));
+-- Tablets
+INSERT INTO products (organization_id, category_id, brand_id, supplier_id, sku, barcode, name, description, cost_price, selling_price, compare_price, weight, min_stock_level, attributes, tags) VALUES 
+(1, 3, 1, 1, 'IPAD-AIR-256', '0123456789012', 'iPad Air 256GB WiFi', '10.9-inch iPad Air with M1 chip', 14000000, 18000000, 20000000, 461, 5, '{"processor":"M1","storage":"256GB","screen":"10.9-inch","connectivity":"WiFi"}', '["ipad","tablet","creative"]'),
+(1, 3, 2, 1, 'SGT-TAB-128', '1234567890234', 'Samsung Galaxy Tab S9 128GB', 'Premium Android tablet with S Pen', 12000000, 16000000, 18000000, 498, 5, '{"processor":"Snapdragon 8 Gen 2","storage":"128GB","screen":"11-inch","accessories":"S Pen"}', '["samsung","android","stylus"]');
 
--- =====================================================
--- 7. BADGES (Achievement System)
--- =====================================================
+-- Audio Products
+INSERT INTO products (organization_id, category_id, brand_id, supplier_id, sku, barcode, name, description, cost_price, selling_price, compare_price, weight, min_stock_level, attributes, tags) VALUES 
+(1, 4, 1, 1, 'AIRPODS-PRO2', '2345678901345', 'AirPods Pro 2nd Gen', 'Premium wireless earbuds with active noise cancellation', 4500000, 6000000, 6500000, 50.8, 15, '{"type":"True Wireless","features":"ANC","battery":"30 hours"}', '["airpods","wireless","anc"]'),
+(1, 4, 11, 2, 'SONY-WH1000XM5', '3456789012456', 'Sony WH-1000XM5', 'Industry-leading noise canceling headphones', 6000000, 8500000, 9000000, 250, 8, '{"type":"Over-ear","features":"ANC","battery":"30 hours"}', '["sony","headphones","anc"]'),
+(1, 4, 12, 2, 'JBL-FLIP6-BL', '4567890123567', 'JBL Flip 6 Blue', 'Portable waterproof Bluetooth speaker', 1800000, 2500000, 2800000, 550, 20, '{"type":"Portable Speaker","features":"Waterproof","battery":"12 hours","color":"Blue"}', '["jbl","speaker","waterproof"]');
 
-INSERT INTO badges (id, name, description, icon, color, criteria, points, rarity, is_active, created_at) VALUES
-('badge-001', 'First Sale', 'Complete your first successful sale', 'trophy', '#faad14', '{"type": "sales_count", "value": 1}', 50, 'common', 1, datetime('now', '-30 days')),
-('badge-002', 'Sales Rookie', 'Complete 10 sales', 'star', '#52c41a', '{"type": "sales_count", "value": 10}', 100, 'common', 1, datetime('now', '-30 days')),
-('badge-003', 'Sales Pro', 'Complete 50 sales', 'fire', '#1890ff', '{"type": "sales_count", "value": 50}', 250, 'rare', 1, datetime('now', '-30 days')),
-('badge-004', 'Sales Legend', 'Complete 100 sales', 'crown', '#722ed1', '{"type": "sales_count", "value": 100}', 500, 'epic', 1, datetime('now', '-30 days')),
-('badge-005', 'Big Spender', 'Single sale over $500', 'dollar', '#fa541c', '{"type": "single_sale", "value": 500}', 200, 'rare', 1, datetime('now', '-30 days')),
-('badge-006', 'Streak Master', 'Maintain 10-day sales streak', 'lightning-bolt', '#eb2f96', '{"type": "sales_streak", "value": 10}', 300, 'epic', 1, datetime('now', '-30 days')),
-('badge-007', 'Customer Favorite', 'Serve 25 different customers', 'heart', '#f5222d', '{"type": "unique_customers", "value": 25}', 150, 'rare', 1, datetime('now', '-30 days')),
-('badge-008', 'Speed Demon', 'Complete 20 sales in one day', 'rocket', '#13c2c2', '{"type": "daily_sales", "value": 20}', 400, 'epic', 1, datetime('now', '-30 days')),
-('badge-009', 'Early Bird', 'First sale of the day 5 times', 'sun', '#fadb14', '{"type": "first_sale_day", "value": 5}', 100, 'common', 1, datetime('now', '-30 days')),
-('badge-010', 'Upsell Master', 'Achieve $10k in total sales', 'gift', '#9254de', '{"type": "total_sales", "value": 10000}', 750, 'legendary', 1, datetime('now', '-30 days'));
+-- Gaming
+INSERT INTO products (organization_id, category_id, brand_id, supplier_id, sku, barcode, name, description, cost_price, selling_price, compare_price, weight, min_stock_level, attributes, tags) VALUES 
+(1, 5, 11, 1, 'PS5-CONSOLE', '5678901234678', 'PlayStation 5 Console', 'Next-gen gaming console with ultra-fast SSD', 11000000, 15000000, 16000000, 4200, 2, '{"storage":"825GB SSD","features":"4K Gaming","accessories":"DualSense Controller"}', '["playstation","gaming","console"]'),
+(1, 5, 11, 1, 'PS5-CONTROLLER', '6789012345789', 'DualSense Wireless Controller', 'Advanced haptic feedback gaming controller', 1200000, 1800000, 2000000, 280, 10, '{"type":"Wireless Controller","features":"Haptic Feedback","compatibility":"PS5"}', '["controller","gaming","wireless"]');
 
--- =====================================================
--- 8. ACHIEVEMENTS (User Progress)
--- =====================================================
+-- Accessories
+INSERT INTO products (organization_id, category_id, brand_id, supplier_id, sku, barcode, name, description, cost_price, selling_price, compare_price, weight, min_stock_level, attributes, tags) VALUES 
+(1, 6, 13, 2, 'ANK-PD65W', '7890123456890', 'Anker PowerDelivery 65W Charger', 'Fast charging adapter with USB-C PD', 800000, 1200000, 1400000, 200, 25, '{"power":"65W","ports":"USB-C","features":"PowerDelivery"}', '["charger","usb-c","fast-charging"]'),
+(1, 6, 14, 2, 'BAS-CABLE-2M', '8901234567901', 'Baseus USB-C Cable 2M', 'High-quality braided charging cable', 200000, 350000, 400000, 150, 50, '{"length":"2 meters","type":"USB-C","features":"Braided"}', '["cable","usb-c","durable"]'),
+(1, 6, 13, 2, 'ANK-BANK-20K', '9012345678012', 'Anker PowerCore 20000mAh', 'High-capacity portable power bank', 1000000, 1500000, 1700000, 355, 15, '{"capacity":"20000mAh","ports":"USB-A, USB-C","features":"Fast Charging"}', '["powerbank","portable","anker"]');
 
-INSERT INTO achievements (id, user_id, badge_id, progress, is_completed, completed_at, created_at) VALUES
--- Staff-001 achievements
-('ach-001', 'staff-001', 'badge-001', 1, 1, datetime('now', '-24 days'), datetime('now', '-25 days')),
-('ach-002', 'staff-001', 'badge-002', 10, 1, datetime('now', '-20 days'), datetime('now', '-25 days')),
-('ach-003', 'staff-001', 'badge-003', 50, 1, datetime('now', '-10 days'), datetime('now', '-25 days')),
-('ach-004', 'staff-001', 'badge-004', 89, 0, NULL, datetime('now', '-25 days')),
-('ach-005', 'staff-001', 'badge-005', 1, 1, datetime('now', '-15 days'), datetime('now', '-25 days')),
-('ach-006', 'staff-001', 'badge-010', 15850, 1, datetime('now', '-5 days'), datetime('now', '-25 days')),
+-- ================================
+-- 5. INVENTORY SETUP
+-- ================================
 
--- Cashier-001 achievements
-('ach-007', 'cashier-001', 'badge-001', 1, 1, datetime('now', '-14 days'), datetime('now', '-15 days')),
-('ach-008', 'cashier-001', 'badge-002', 10, 1, datetime('now', '-12 days'), datetime('now', '-15 days')),
-('ach-009', 'cashier-001', 'badge-003', 50, 1, datetime('now', '-8 days'), datetime('now', '-15 days')),
-('ach-010', 'cashier-001', 'badge-004', 145, 1, datetime('now', '-3 days'), datetime('now', '-15 days')),
-('ach-011', 'cashier-001', 'badge-006', 12, 1, datetime('now', '-2 days'), datetime('now', '-15 days'));
+-- Store 1 Inventory
+INSERT INTO inventory (organization_id, store_id, product_id, quantity_on_hand, reorder_point, max_stock_level) VALUES 
+(1, 1, 1, 15, 5, 30),    -- iPhone 15 128GB Black
+(1, 1, 2, 8, 3, 20),     -- iPhone 15 256GB Blue  
+(1, 1, 3, 25, 8, 50),    -- Samsung Galaxy S24
+(1, 1, 4, 30, 10, 60),   -- Xiaomi 14
+(1, 1, 5, 20, 8, 40),    -- OPPO Find X5
+(1, 1, 6, 18, 10, 35),   -- Vivo V30
+(1, 1, 7, 5, 3, 15),     -- MacBook Air M2
+(1, 1, 8, 8, 3, 20),     -- Dell XPS 13
+(1, 1, 9, 3, 2, 10),     -- HP Spectre x360
+(1, 1, 10, 12, 4, 25),   -- ASUS ZenBook 14
+(1, 1, 11, 10, 5, 20),   -- iPad Air
+(1, 1, 12, 15, 5, 30),   -- Samsung Galaxy Tab S9
+(1, 1, 13, 45, 15, 80),  -- AirPods Pro 2
+(1, 1, 14, 20, 8, 40),   -- Sony WH-1000XM5
+(1, 1, 15, 35, 20, 70),  -- JBL Flip 6
+(1, 1, 16, 3, 2, 8),     -- PlayStation 5
+(1, 1, 17, 25, 10, 50),  -- DualSense Controller
+(1, 1, 18, 60, 25, 100), -- Anker 65W Charger
+(1, 1, 19, 80, 50, 150), -- Baseus USB-C Cable
+(1, 1, 20, 40, 15, 80);  -- Anker PowerCore 20K
 
--- =====================================================
--- 9. CHALLENGES (Gamification Tasks)
--- =====================================================
+-- Store 2 Inventory (similar but different quantities)
+INSERT INTO inventory (organization_id, store_id, product_id, quantity_on_hand, reorder_point, max_stock_level) VALUES 
+(1, 2, 1, 12, 5, 25),    
+(1, 2, 2, 6, 3, 15),     
+(1, 2, 3, 20, 8, 45),    
+(1, 2, 4, 35, 10, 70),   
+(1, 2, 5, 15, 8, 35),    
+(1, 2, 6, 22, 10, 40),   
+(1, 2, 7, 4, 3, 12),     
+(1, 2, 8, 6, 3, 18),     
+(1, 2, 9, 2, 2, 8),      
+(1, 2, 10, 10, 4, 22),   
+(1, 2, 11, 8, 5, 18),    
+(1, 2, 12, 12, 5, 25),   
+(1, 2, 13, 38, 15, 70),  
+(1, 2, 14, 15, 8, 35),   
+(1, 2, 15, 28, 20, 60),  
+(1, 2, 16, 2, 2, 6),     
+(1, 2, 17, 20, 10, 45),  
+(1, 2, 18, 55, 25, 90),  
+(1, 2, 19, 75, 50, 140), 
+(1, 2, 20, 35, 15, 75);  
 
-INSERT INTO challenges (id, title, description, type, target_value, reward_points, reward_badge_id, start_date, end_date, is_active, created_at) VALUES
-('chal-001', 'Daily Sales Goal', 'Complete 5 sales today', 'daily', 5, 50, NULL, DATE('now'), DATE('now'), 1, datetime('now')),
-('chal-002', 'Weekly Revenue Target', 'Achieve $2000 in sales this week', 'weekly', 2000, 200, NULL, DATE('now', 'weekday 1', '-7 days'), DATE('now', 'weekday 0'), 1, datetime('now', '-7 days')),
-('chal-003', 'Monthly Customer Champion', 'Serve 100 different customers this month', 'monthly', 100, 500, 'badge-007', DATE('now', 'start of month'), DATE('now', 'start of month', '+1 month', '-1 day'), 1, datetime('now', '-30 days')),
-('chal-004', 'Upselling Master', 'Achieve average order value of $75', 'weekly', 75, 150, NULL, DATE('now', 'weekday 1', '-7 days'), DATE('now', 'weekday 0'), 1, datetime('now', '-7 days')),
-('chal-005', 'Perfect Week', 'No cancelled or returned orders this week', 'weekly', 0, 100, NULL, DATE('now', 'weekday 1', '-7 days'), DATE('now', 'weekday 0'), 1, datetime('now', '-7 days'));
+-- ================================
+-- 6. SAMPLE CUSTOMERS
+-- ================================
 
--- =====================================================
--- 10. SAMPLE ORDERS (Transaction History)
--- =====================================================
+INSERT INTO customers (organization_id, customer_number, first_name, last_name, email, phone, date_of_birth, gender, address, city, customer_group, loyalty_points, total_spent, total_orders, is_vip, preferences, notes) VALUES 
+(1, 'CUST000001', 'Nguyen', 'Van A', 'nguyenvana@email.com', '+84-901-111-111', '1985-06-15', 'male', '123 Le Loi Street, District 1', 'Ho Chi Minh City', 'vip', 2500, 45000000, 18, TRUE, '{"preferred_brands":["Apple","Samsung"],"communication":"email"}', 'VIP customer, prefers premium products'),
+(1, 'CUST000002', 'Tran', 'Thi B', 'tranthib@email.com', '+84-902-222-222', '1990-03-22', 'female', '456 Nguyen Hue Street, District 1', 'Ho Chi Minh City', 'regular', 1200, 18000000, 12, FALSE, '{"preferred_brands":["Xiaomi","OPPO"],"communication":"sms"}', 'Tech enthusiast, likes latest gadgets'),
+(1, 'CUST000003', 'Le', 'Van C', 'levanc@email.com', '+84-903-333-333', '1988-12-10', 'male', '789 Dong Khoi Street, District 1', 'Ho Chi Minh City', 'premium', 1800, 32000000, 15, TRUE, '{"preferred_brands":["Apple","Sony"],"communication":"email"}', 'Business professional, frequent buyer'),
+(1, 'CUST000004', 'Pham', 'Thi D', 'phamthid@email.com', '+84-904-444-444', '1995-08-05', 'female', '321 Ham Nghi Street, District 1', 'Ho Chi Minh City', 'student', 450, 8500000, 6, FALSE, '{"preferred_brands":["Xiaomi","Vivo"],"communication":"app"}', 'Student, budget-conscious buyer'),
+(1, 'CUST000005', 'Hoang', 'Van E', 'hoangvane@email.com', '+84-905-555-555', '1982-11-30', 'male', '654 Vo Van Tan Street, District 3', 'Ho Chi Minh City', 'vip', 3200, 58000000, 22, TRUE, '{"preferred_brands":["Apple","Dell","Sony"],"communication":"email"}', 'Tech company owner, bulk purchases');
 
-INSERT INTO orders (id, order_number, customer_id, cashier_id, subtotal, tax_amount, discount_amount, total_amount, payment_method, payment_status, order_status, notes, receipt_printed, created_at, updated_at) VALUES
--- Recent orders for analytics
-('ord-001', 'ORD-20241201-001', 'cust-001', 'cashier-001', 1199.98, 119.99, 0.00, 1319.97, 'card', 'completed', 'completed', 'Customer requested gift wrapping', 1, datetime('now', '-2 days'), datetime('now', '-2 days')),
-('ord-002', 'ORD-20241201-002', 'cust-003', 'staff-001', 45.97, 2.30, 5.00, 43.27, 'cash', 'completed', 'completed', NULL, 1, datetime('now', '-1 day'), datetime('now', '-1 day')),
-('ord-003', 'ORD-20241201-003', NULL, 'cashier-002', 129.99, 10.72, 0.00, 140.71, 'digital_wallet', 'completed', 'completed', 'Walk-in customer', 1, datetime('now', '-1 day'), datetime('now', '-1 day')),
-('ord-004', 'ORD-20241201-004', 'cust-005', 'cashier-001', 78.96, 6.51, 10.00, 75.47, 'card', 'completed', 'completed', 'Loyalty discount applied', 1, datetime('now', '-0.5 days'), datetime('now', '-0.5 days')),
-('ord-005', 'ORD-20241201-005', 'cust-002', 'staff-002', 599.99, 59.99, 0.00, 659.98, 'card', 'completed', 'completed', 'Corporate purchase', 1, datetime('now', '-0.2 days'), datetime('now', '-0.2 days'));
+-- ================================
+-- 7. SAMPLE ORDERS & TRANSACTIONS
+-- ================================
 
--- =====================================================
--- 11. ORDER ITEMS (Transaction Details)
--- =====================================================
+-- Sample orders from the past month
+INSERT INTO orders (organization_id, store_id, order_number, customer_id, cashier_id, order_type, status, subtotal, discount_amount, tax_amount, total_amount, paid_amount, payment_status, points_earned, notes, created_at) VALUES 
+(1, 1, 'ORD-20250101-001', 1, 7, 'sale', 'completed', 25000000, 0, 2500000, 27500000, 27500000, 'paid', 250, 'VIP customer purchase', '2025-01-01 10:30:00'),
+(1, 1, 'ORD-20250101-002', 2, 8, 'sale', 'completed', 18000000, 900000, 1710000, 18810000, 18810000, 'paid', 180, 'First-time customer discount applied', '2025-01-01 14:15:00'),
+(1, 1, 'ORD-20250102-001', 3, 7, 'sale', 'completed', 32000000, 1600000, 3040000, 33440000, 33440000, 'paid', 320, 'Business bulk purchase', '2025-01-02 09:45:00'),
+(1, 2, 'ORD-20250102-002', 4, 9, 'sale', 'completed', 14000000, 700000, 1330000, 14630000, 14630000, 'paid', 140, 'Student discount applied', '2025-01-02 16:20:00'),
+(1, 1, 'ORD-20250103-001', 5, 10, 'sale', 'completed', 28000000, 0, 2800000, 30800000, 30800000, 'paid', 280, 'MacBook Air purchase', '2025-01-03 11:10:00');
 
-INSERT INTO order_items (id, order_id, product_id, quantity, unit_price, subtotal, discount_amount, created_at) VALUES
--- Order 1 items (iPhone + Watch)
-('item-001', 'ord-001', 'prod-001', 1, 999.99, 999.99, 0.00, datetime('now', '-2 days')),
-('item-002', 'ord-001', 'prod-004', 1, 199.99, 199.99, 0.00, datetime('now', '-2 days')),
+-- Order items for the above orders
+INSERT INTO order_items (order_id, product_id, quantity, unit_price, total_amount, cost_price) VALUES 
+-- Order 1: iPhone 15 128GB Black
+(1, 1, 1, 25000000, 25000000, 18000000),
 
--- Order 2 items (Mixed items)
-('item-003', 'ord-002', 'prod-005', 2, 24.99, 49.98, 5.00, datetime('now', '-1 day')),
-('item-004', 'ord-002', 'prod-008', 3, 1.99, 5.97, 0.00, datetime('now', '-1 day')),
+-- Order 2: Xiaomi 14 (with discount)
+(2, 4, 1, 18000000, 17100000, 12000000),
 
--- Order 3 items (Sneakers)
-('item-005', 'ord-003', 'prod-007', 1, 129.99, 129.99, 0.00, datetime('now', '-1 day')),
+-- Order 3: MacBook Air M2 + iPad Air
+(3, 7, 1, 28000000, 28000000, 22000000),
+(3, 11, 1, 18000000, 18000000, 14000000),
 
--- Order 4 items (Multiple small items)
-('item-006', 'ord-004', 'prod-009', 2, 3.49, 6.98, 0.00, datetime('now', '-0.5 days')),
-('item-007', 'ord-004', 'prod-011', 1, 12.99, 12.99, 0.00, datetime('now', '-0.5 days')),
-('item-008', 'ord-004', 'prod-012', 3, 9.99, 29.97, 0.00, datetime('now', '-0.5 days')),
-('item-009', 'ord-004', 'prod-014', 1, 34.99, 34.99, 10.00, datetime('now', '-0.5 days')),
+-- Order 4: Vivo V30 (student discount)
+(4, 6, 1, 14000000, 13300000, 9000000),
 
--- Order 5 items (iPad)
-('item-010', 'ord-005', 'prod-003', 1, 599.99, 599.99, 0.00, datetime('now', '-0.2 days'));
+-- Order 5: MacBook Air M2
+(5, 7, 1, 28000000, 28000000, 22000000);
 
--- =====================================================
--- 12. INVENTORY LOGS (Stock Movement History)
--- =====================================================
+-- Sample payments
+INSERT INTO payments (order_id, payment_method, amount, status, processed_at) VALUES 
+(1, 'card', 27500000, 'completed', '2025-01-01 10:32:00'),
+(2, 'cash', 18810000, 'completed', '2025-01-01 14:17:00'),
+(3, 'card', 33440000, 'completed', '2025-01-02 09:47:00'),
+(4, 'digital', 14630000, 'completed', '2025-01-02 16:22:00'),
+(5, 'card', 30800000, 'completed', '2025-01-03 11:12:00');
 
-INSERT INTO inventory_logs (id, product_id, user_id, type, quantity_change, previous_quantity, new_quantity, reason, reference_id, created_at) VALUES
--- Initial stock entries
-('log-001', 'prod-001', 'admin-001', 'restock', 30, 0, 30, 'Initial inventory', NULL, datetime('now', '-25 days')),
-('log-002', 'prod-002', 'admin-001', 'restock', 35, 0, 35, 'Initial inventory', NULL, datetime('now', '-25 days')),
-('log-003', 'prod-003', 'admin-001', 'restock', 20, 0, 20, 'Initial inventory', NULL, datetime('now', '-25 days')),
+-- ================================
+-- 8. GAMIFICATION SETUP
+-- ================================
 
--- Sales transactions
-('log-004', 'prod-001', 'cashier-001', 'sale', -1, 30, 29, 'Product sale', 'ord-001', datetime('now', '-2 days')),
-('log-005', 'prod-004', 'cashier-001', 'sale', -1, 45, 44, 'Product sale', 'ord-001', datetime('now', '-2 days')),
-('log-006', 'prod-005', 'staff-001', 'sale', -2, 102, 100, 'Product sale', 'ord-002', datetime('now', '-1 day')),
-('log-007', 'prod-007', 'cashier-002', 'sale', -1, 46, 45, 'Product sale', 'ord-003', datetime('now', '-1 day')),
-('log-008', 'prod-003', 'staff-002', 'sale', -1, 16, 15, 'Product sale', 'ord-005', datetime('now', '-0.2 days')),
+-- Sample achievements
+INSERT INTO achievements (organization_id, name, description, icon, category, condition_type, condition_value, condition_period, points_reward) VALUES 
+(1, 'First Sale', 'Complete your first sale', '🎯', 'sales', 'sales_count', 1, 'all_time', 10),
+(1, 'Sales Rookie', 'Complete 10 sales in a month', '🏆', 'sales', 'sales_count', 10, 'monthly', 50),
+(1, 'Revenue Champion', 'Generate 50M VND in sales in a month', '💰', 'sales', 'sales_amount', 50000000, 'monthly', 200),
+(1, 'Customer Favorite', 'Serve 100 customers in a month', '❤️', 'customer_service', 'customer_count', 100, 'monthly', 100),
+(1, 'Perfect Week', 'Zero mistakes for a week', '⭐', 'performance', 'error_rate', 0, 'weekly', 75),
+(1, 'Early Bird', 'Arrive on time for 30 days', '🌅', 'attendance', 'days_present', 30, 'monthly', 80),
+(1, 'Team Player', 'Help colleagues 20 times', '🤝', 'teamwork', 'help_count', 20, 'monthly', 60),
+(1, 'Tech Expert', 'Complete product training', '🎓', 'training', 'training_complete', 1, 'all_time', 150);
 
--- Stock adjustments
-('log-009', 'prod-008', 'staff-001', 'adjustment', -5, 205, 200, 'Damaged items removed', NULL, datetime('now', '-3 days')),
-('log-010', 'prod-012', 'staff-002', 'restock', 20, 100, 120, 'Weekly restocking', NULL, datetime('now', '-1 day'));
+-- Award some achievements to users
+INSERT INTO user_achievements (user_id, achievement_id, earned_at, progress_value) VALUES 
+(7, 1, '2024-02-01 09:00:00', 1),  -- Cashier1 - First Sale
+(7, 2, '2024-03-01 18:00:00', 15), -- Cashier1 - Sales Rookie
+(8, 1, '2024-02-01 10:30:00', 1),  -- Cashier2 - First Sale
+(8, 2, '2024-03-15 17:00:00', 12), -- Cashier2 - Sales Rookie
+(12, 1, '2024-02-15 11:00:00', 1), -- Sales1 - First Sale
+(12, 3, '2024-03-31 20:00:00', 52000000), -- Sales1 - Revenue Champion
+(13, 1, '2024-02-15 14:00:00', 1), -- Sales2 - First Sale
+(13, 3, '2024-03-31 20:00:00', 48000000); -- Sales2 - Almost Revenue Champion
 
--- =====================================================
--- 13. SYSTEM SETTINGS
--- =====================================================
+-- Sample gamification stats
+INSERT INTO gamification_stats (user_id, period_type, period_date, total_sales, total_orders, total_customers, points_earned, rank_position) VALUES 
+(7, 'monthly', '2025-01-01', 15000000, 25, 20, 150, 3),  -- Cashier1 Jan stats
+(8, 'monthly', '2025-01-01', 18000000, 30, 25, 180, 2),  -- Cashier2 Jan stats  
+(12, 'monthly', '2025-01-01', 35000000, 15, 15, 350, 1), -- Sales1 Jan stats
+(13, 'monthly', '2025-01-01', 28000000, 12, 12, 280, 4), -- Sales2 Jan stats
+(9, 'monthly', '2025-01-01', 12000000, 20, 18, 120, 5);  -- Cashier3 Jan stats
 
-INSERT INTO settings (id, key, value, type, description, is_public, created_at, updated_at) VALUES
-('set-001', 'store_name', 'Enterprise POS Demo Store', 'string', 'Store display name', 1, datetime('now', '-30 days'), datetime('now')),
-('set-002', 'store_address', '123 Business St, Commerce City, CC 12345', 'string', 'Store physical address', 1, datetime('now', '-30 days'), datetime('now')),
-('set-003', 'store_phone', '+1-555-STORE-01', 'string', 'Store contact phone', 1, datetime('now', '-30 days'), datetime('now')),
-('set-004', 'store_email', 'info@enterprisepos.com', 'string', 'Store contact email', 1, datetime('now', '-30 days'), datetime('now')),
-('set-005', 'tax_rate', '8.25', 'number', 'Default tax rate percentage', 0, datetime('now', '-30 days'), datetime('now')),
-('set-006', 'currency', 'USD', 'string', 'Store currency code', 1, datetime('now', '-30 days'), datetime('now')),
-('set-007', 'loyalty_points_ratio', '100', 'number', 'Points earned per dollar spent', 0, datetime('now', '-30 days'), datetime('now')),
-('set-008', 'low_stock_threshold', '10', 'number', 'Default low stock alert threshold', 0, datetime('now', '-30 days'), datetime('now')),
-('set-009', 'receipt_footer', 'Thank you for shopping with us!', 'string', 'Receipt footer message', 1, datetime('now', '-30 days'), datetime('now')),
-('set-010', 'business_hours', '{"monday": "9:00-21:00", "tuesday": "9:00-21:00", "wednesday": "9:00-21:00", "thursday": "9:00-21:00", "friday": "9:00-22:00", "saturday": "9:00-22:00", "sunday": "10:00-20:00"}', 'json', 'Store operating hours', 1, datetime('now', '-30 days'), datetime('now'));
+-- ================================
+-- 9. LOYALTY PROGRAM SETUP
+-- ================================
 
--- =====================================================
--- 14. NOTIFICATIONS (Sample alerts)
--- =====================================================
+INSERT INTO loyalty_programs (organization_id, name, description, points_per_currency, currency_per_point, tier_thresholds, rules) VALUES 
+(1, 'TechMart Rewards', 'Earn points on every purchase and unlock exclusive benefits', 0.001, 1000, '{"silver":5000000,"gold":20000000,"platinum":50000000}', '{"point_expiry":365,"birthday_bonus":2,"referral_points":500}');
 
-INSERT INTO notifications (id, user_id, title, message, type, is_read, action_url, metadata, created_at) VALUES
-('not-001', 'admin-001', 'Low Stock Alert', 'iPhone 15 128GB is running low (5 units remaining)', 'warning', 0, '/products/prod-001', '{"product_id": "prod-001", "current_stock": 5}', datetime('now', '-1 hour')),
-('not-002', 'staff-001', 'Sales Goal Achieved', 'Congratulations! You have reached your daily sales goal', 'success', 1, '/dashboard', '{"goal_amount": 1000, "achieved_amount": 1200}', datetime('now', '-2 hours')),
-('not-003', 'cashier-001', 'New Badge Earned', 'You earned the "Sales Pro" badge for completing 50 sales!', 'success', 0, '/gamification', '{"badge_id": "badge-003"}', datetime('now', '-3 hours')),
-('not-004', 'admin-001', 'Daily Report Ready', 'Your daily sales report is ready for review', 'info', 1, '/reports/daily', '{"report_date": "2024-12-01"}', datetime('now', '-4 hours')),
-('not-005', 'staff-002', 'Customer Feedback', 'New 5-star review received from Alice Johnson', 'success', 0, '/customers/cust-001', '{"customer_id": "cust-001", "rating": 5}', datetime('now', '-6 hours'));
+-- Sample loyalty transactions
+INSERT INTO loyalty_transactions (customer_id, order_id, transaction_type, points, description) VALUES 
+(1, 1, 'earned', 250, 'Points earned from purchase'),
+(2, 2, 'earned', 180, 'Points earned from purchase'),
+(3, 3, 'earned', 320, 'Points earned from purchase'),
+(4, 4, 'earned', 140, 'Points earned from purchase'),
+(5, 5, 'earned', 280, 'Points earned from purchase');
 
--- =====================================================
--- 15. AI RECOMMENDATIONS (Sample data)
--- =====================================================
+-- ================================
+-- 10. PROMOTIONS & DISCOUNTS
+-- ================================
 
-INSERT INTO ai_recommendations (id, type, target_id, data, confidence, status, created_at, expires_at) VALUES
-('ai-001', 'product_recommendation', 'cust-001', '{"recommended_products": ["prod-004", "prod-018"], "reason": "Based on purchase history", "confidence_score": 0.85}', 0.85, 'active', datetime('now', '-2 days'), datetime('now', '+5 days')),
-('ai-002', 'price_optimization', 'prod-005', '{"current_price": 24.99, "recommended_price": 27.99, "expected_increase": 12, "reason": "High demand, low stock"}', 0.78, 'active', datetime('now', '-1 day'), datetime('now', '+7 days')),
-('ai-003', 'stock_prediction', 'prod-001', '{"current_stock": 25, "predicted_stock_out": "2024-12-10", "recommended_reorder": 50, "confidence": 0.92}', 0.92, 'active', datetime('now', '-1 hour'), datetime('now', '+14 days')),
-('ai-004', 'customer_segment', 'cust-003', '{"segment": "high_value", "characteristics": ["frequent_buyer", "high_spending"], "recommended_offers": ["loyalty_bonus", "early_access"]}', 0.88, 'active', datetime('now', '-6 hours'), datetime('now', '+30 days'));
+INSERT INTO promotions (organization_id, name, description, type, value, minimum_amount, usage_limit, start_date, end_date, applicable_categories) VALUES 
+(1, 'New Year Sale', '10% off on all smartphones', 'percentage', 10, 10000000, 1000, '2025-01-01 00:00:00', '2025-01-31 23:59:59', '[1]'),
+(1, 'Student Discount', '5% off for students', 'percentage', 5, 5000000, 500, '2025-01-01 00:00:00', '2025-12-31 23:59:59', '[]'),
+(1, 'VIP Exclusive', '15% off for VIP customers', 'percentage', 15, 20000000, 200, '2025-01-01 00:00:00', '2025-03-31 23:59:59', '[]'),
+(1, 'Bundle Deal', '1M VND off when buying laptop + accessories', 'fixed_amount', 1000000, 25000000, 100, '2025-01-15 00:00:00', '2025-02-15 23:59:59', '[2,6]');
 
--- =====================================================
--- 16. FORECASTS (Sample predictions)
--- =====================================================
+-- ================================
+-- 11. ANALYTICS DATA
+-- ================================
 
-INSERT INTO forecasts (id, product_id, forecast_type, period_type, forecast_date, predicted_value, confidence_interval, actual_value, created_at) VALUES
-('for-001', 'prod-001', 'sales', 'daily', DATE('now', '+1 day'), 2.5, 0.85, NULL, datetime('now')),
-('for-002', 'prod-001', 'demand', 'weekly', DATE('now', '+7 days'), 15.0, 0.78, NULL, datetime('now')),
-('for-003', 'prod-005', 'sales', 'daily', DATE('now', '+1 day'), 8.2, 0.72, NULL, datetime('now')),
-('for-004', NULL, 'revenue', 'daily', DATE('now', '+1 day'), 2500.0, 0.80, NULL, datetime('now')),
-('for-005', 'prod-003', 'stock', 'weekly', DATE('now', '+7 days'), 12.0, 0.88, NULL, datetime('now'));
+-- Sample daily analytics for the past week
+INSERT INTO analytics_daily (organization_id, store_id, date, total_sales, total_orders, total_customers, new_customers, average_order_value, total_profit, profit_margin, total_discounts, payment_method_breakdown) VALUES 
+(1, 1, '2025-01-01', 27500000, 1, 1, 0, 27500000, 9500000, 34.5, 0, '{"card":27500000}'),
+(1, 1, '2025-01-02', 33440000, 1, 1, 0, 33440000, 11440000, 34.2, 1600000, '{"card":33440000}'),
+(1, 1, '2025-01-03', 30800000, 1, 1, 0, 30800000, 8800000, 28.6, 0, '{"card":30800000}'),
+(1, 2, '2025-01-01', 18810000, 1, 1, 0, 18810000, 5710000, 30.3, 900000, '{"cash":18810000}'),
+(1, 2, '2025-01-02', 14630000, 1, 1, 0, 14630000, 4630000, 31.7, 700000, '{"digital":14630000}');
 
--- =====================================================
--- FINAL UPDATES AND CALCULATIONS
--- =====================================================
+-- Sample stock movements
+INSERT INTO stock_movements (organization_id, store_id, product_id, movement_type, quantity, previous_quantity, new_quantity, unit_cost, total_cost, reference_type, reference_id, reason, created_by) VALUES 
+(1, 1, 1, 'out', -1, 16, 15, 18000000, 18000000, 'order', 1, 'Sale to customer', 7),
+(1, 1, 4, 'out', -1, 31, 30, 12000000, 12000000, 'order', 2, 'Sale to customer', 8),
+(1, 1, 7, 'out', -1, 6, 5, 22000000, 22000000, 'order', 3, 'Sale to customer', 7),
+(1, 1, 11, 'out', -1, 11, 10, 14000000, 14000000, 'order', 3, 'Sale to customer', 7),
+(1, 2, 6, 'out', -1, 16, 15, 9000000, 9000000, 'order', 4, 'Sale to customer', 9),
+(1, 1, 7, 'out', -1, 5, 4, 22000000, 22000000, 'order', 5, 'Sale to customer', 10);
 
--- Update product stock quantities based on sales
-UPDATE products SET stock_quantity = 24 WHERE id = 'prod-001'; -- 1 sold
-UPDATE products SET stock_quantity = 39 WHERE id = 'prod-004'; -- 1 sold  
-UPDATE products SET stock_quantity = 98 WHERE id = 'prod-005'; -- 2 sold
-UPDATE products SET stock_quantity = 44 WHERE id = 'prod-007'; -- 1 sold
-UPDATE products SET stock_quantity = 14 WHERE id = 'prod-003'; -- 1 sold
-UPDATE products SET stock_quantity = 195 WHERE id = 'prod-008'; -- 5 adjusted + 3 sold
-UPDATE products SET stock_quantity = 117 WHERE id = 'prod-012'; -- 3 sold + 20 restocked
+-- ================================
+-- UPDATE SEQUENCES (SQLite auto-increment)
+-- ================================
 
--- Update customer statistics based on orders
-UPDATE customers SET 
-  total_spent = 1319.97, 
-  visit_count = 13, 
-  loyalty_points = 282,
-  last_visit = datetime('now', '-2 days')
-WHERE id = 'cust-001';
+-- Note: SQLite handles auto-increment automatically, no manual sequence updates needed
 
-UPDATE customers SET 
-  total_spent = 1980.48, 
-  visit_count = 9, 
-  loyalty_points = 217,
-  last_visit = datetime('now', '-1 day')
-WHERE id = 'cust-003';
+-- ================================
+-- FINAL DATA VERIFICATION
+-- ================================
 
-UPDATE customers SET 
-  total_spent = 1656.22, 
-  visit_count = 10, 
-  loyalty_points = 110,
-  last_visit = datetime('now', '-0.5 days')
-WHERE id = 'cust-005';
-
-UPDATE customers SET 
-  total_spent = 1980.48, 
-  visit_count = 9, 
-  loyalty_points = 217,
-  last_visit = datetime('now', '-0.2 days')
-WHERE id = 'cust-002';
-
--- Insert some activity logs for recent actions
-INSERT INTO activity_logs (user_id, action, entity_type, entity_id, new_values, ip_address, created_at) VALUES
-('cashier-001', 'order_created', 'order', 'ord-001', '{"total": 1319.97}', '192.168.1.100', datetime('now', '-2 days')),
-('staff-001', 'order_created', 'order', 'ord-002', '{"total": 43.27}', '192.168.1.101', datetime('now', '-1 day')),
-('cashier-002', 'order_created', 'order', 'ord-003', '{"total": 140.71}', '192.168.1.102', datetime('now', '-1 day')),
-('admin-001', 'user_login', 'auth', 'admin-001', '{}', '192.168.1.1', datetime('now', '-1 hour')),
-('staff-001', 'product_updated', 'product', 'prod-008', '{"stock_adjustment": -5}', '192.168.1.101', datetime('now', '-3 days'));
-
--- =====================================================
--- SEED DATA COMPLETE
--- Total Records Created:
--- - 6 Users (1 Admin, 2 Staff, 3 Cashiers)
--- - 6 Categories
--- - 20 Products 
--- - 10 Customers
--- - 6 Payment Methods
--- - 5 Staff Statistics
--- - 10 Badges
--- - 11 Achievements
--- - 5 Challenges
--- - 5 Orders with 10 Order Items
--- - 10 Inventory Logs
--- - 10 System Settings
--- - 5 Notifications
--- - 4 AI Recommendations
--- - 5 Forecasts
--- - Various Activity Logs
--- =====================================================
-
--- Demo login credentials:
--- Admin: admin@pos.com / admin123
--- Staff: john.staff@pos.com / staff123
--- Cashier: mike.cashier@pos.com / cashier123
+-- Verify record counts
+SELECT 
+    'organizations' as table_name, COUNT(*) as record_count FROM organizations
+UNION ALL SELECT 'stores', COUNT(*) FROM stores
+UNION ALL SELECT 'users', COUNT(*) FROM users  
+UNION ALL SELECT 'categories', COUNT(*) FROM categories
+UNION ALL SELECT 'brands', COUNT(*) FROM brands
+UNION ALL SELECT 'suppliers', COUNT(*) FROM suppliers
+UNION ALL SELECT 'products', COUNT(*) FROM products
+UNION ALL SELECT 'inventory', COUNT(*) FROM inventory
+UNION ALL SELECT 'customers', COUNT(*) FROM customers
+UNION ALL SELECT 'orders', COUNT(*) FROM orders
+UNION ALL SELECT 'order_items', COUNT(*) FROM order_items
+UNION ALL SELECT 'payments', COUNT(*) FROM payments
+UNION ALL SELECT 'achievements', COUNT(*) FROM achievements
+UNION ALL SELECT 'user_achievements', COUNT(*) FROM user_achievements
+UNION ALL SELECT 'loyalty_transactions', COUNT(*) FROM loyalty_transactions
+UNION ALL SELECT 'promotions', COUNT(*) FROM promotions
+UNION ALL SELECT 'analytics_daily', COUNT(*) FROM analytics_daily
+UNION ALL SELECT 'stock_movements', COUNT(*) FROM stock_movements;

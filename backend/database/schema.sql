@@ -1,334 +1,710 @@
--- =====================================================
--- ENTERPRISE POS SYSTEM - COMPLETE DATABASE SCHEMA
--- 17 Tables for Full POS + Gamification + AI Features
--- Compatible with Cloudflare D1 (SQLite)
--- =====================================================
+-- ================================
+-- ENTERPRISE POS DATABASE SCHEMA v2.0.0
+-- Cloudflare D1 (SQLite) Database
+-- ================================
 
--- 1. USERS TABLE (Multi-role: Admin/Cashier/Staff)
-CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-    email TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    name TEXT NOT NULL,
-    role TEXT NOT NULL CHECK (role IN ('admin', 'cashier', 'staff')),
-    phone TEXT,
-    avatar_url TEXT,
-    is_active BOOLEAN DEFAULT 1,
-    last_login DATETIME,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
+-- Enable foreign key constraints
+PRAGMA foreign_keys = ON;
 
--- 2. CATEGORIES TABLE
-CREATE TABLE IF NOT EXISTS categories (
-    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+-- ================================
+-- 1. ORGANIZATIONS & STORES
+-- ================================
+
+CREATE TABLE organizations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
+    slug TEXT UNIQUE NOT NULL,
     description TEXT,
-    icon TEXT,
-    color TEXT DEFAULT '#1890ff',
-    sort_order INTEGER DEFAULT 0,
-    is_active BOOLEAN DEFAULT 1,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
--- 3. PRODUCTS TABLE (With AI recommendations)
-CREATE TABLE IF NOT EXISTS products (
-    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-    sku TEXT UNIQUE NOT NULL,
-    name TEXT NOT NULL,
-    description TEXT,
-    category_id TEXT,
-    price DECIMAL(10,2) NOT NULL,
-    cost_price DECIMAL(10,2),
-    stock_quantity INTEGER DEFAULT 0,
-    reorder_level INTEGER DEFAULT 10,
-    barcode TEXT UNIQUE,
-    image_url TEXT,
-    is_active BOOLEAN DEFAULT 1,
-    weight DECIMAL(8,3),
-    dimensions TEXT, -- JSON: {length, width, height}
-    tax_rate DECIMAL(5,2) DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (category_id) REFERENCES categories(id)
-);
-
--- 4. CUSTOMERS TABLE (CRM Features)
-CREATE TABLE IF NOT EXISTS customers (
-    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-    name TEXT NOT NULL,
-    email TEXT UNIQUE,
+    logo_url TEXT,
+    website TEXT,
     phone TEXT,
+    email TEXT,
     address TEXT,
     city TEXT,
+    state TEXT,
+    country TEXT DEFAULT 'VN',
     postal_code TEXT,
-    date_of_birth DATE,
-    loyalty_points INTEGER DEFAULT 0,
-    total_spent DECIMAL(12,2) DEFAULT 0,
-    visit_count INTEGER DEFAULT 0,
-    last_visit DATETIME,
-    notes TEXT,
-    is_active BOOLEAN DEFAULT 1,
+    timezone TEXT DEFAULT 'Asia/Ho_Chi_Minh',
+    currency TEXT DEFAULT 'VND',
+    tax_rate REAL DEFAULT 0.1,
+    business_type TEXT DEFAULT 'retail',
+    license_number TEXT,
+    settings JSON DEFAULT '{}',
+    is_active BOOLEAN DEFAULT TRUE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- 5. ORDERS TABLE (POS Transactions)
-CREATE TABLE IF NOT EXISTS orders (
-    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-    order_number TEXT UNIQUE NOT NULL,
-    customer_id TEXT,
-    cashier_id TEXT NOT NULL,
-    subtotal DECIMAL(10,2) NOT NULL,
-    tax_amount DECIMAL(10,2) DEFAULT 0,
-    discount_amount DECIMAL(10,2) DEFAULT 0,
-    total_amount DECIMAL(10,2) NOT NULL,
-    payment_method TEXT NOT NULL CHECK (payment_method IN ('cash', 'card', 'digital_wallet', 'loyalty_points')),
-    payment_status TEXT DEFAULT 'completed' CHECK (payment_status IN ('pending', 'completed', 'refunded', 'cancelled')),
-    order_status TEXT DEFAULT 'completed' CHECK (order_status IN ('pending', 'completed', 'cancelled')),
-    notes TEXT,
-    receipt_printed BOOLEAN DEFAULT 0,
+CREATE TABLE stores (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    organization_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    code TEXT UNIQUE NOT NULL,
+    description TEXT,
+    phone TEXT,
+    email TEXT,
+    address TEXT NOT NULL,
+    city TEXT NOT NULL,
+    state TEXT,
+    postal_code TEXT,
+    latitude REAL,
+    longitude REAL,
+    manager_id INTEGER,
+    opening_hours JSON DEFAULT '{}',
+    settings JSON DEFAULT '{}',
+    is_active BOOLEAN DEFAULT TRUE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (customer_id) REFERENCES customers(id),
-    FOREIGN KEY (cashier_id) REFERENCES users(id)
+    FOREIGN KEY (organization_id) REFERENCES organizations(id),
+    FOREIGN KEY (manager_id) REFERENCES users(id)
 );
 
--- 6. ORDER_ITEMS TABLE (Order Line Items)
-CREATE TABLE IF NOT EXISTS order_items (
-    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-    order_id TEXT NOT NULL,
-    product_id TEXT NOT NULL,
-    quantity INTEGER NOT NULL,
-    unit_price DECIMAL(10,2) NOT NULL,
-    subtotal DECIMAL(10,2) NOT NULL,
-    discount_amount DECIMAL(10,2) DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
-    FOREIGN KEY (product_id) REFERENCES products(id)
-);
+-- ================================
+-- 2. USERS & AUTHENTICATION
+-- ================================
 
--- 7. PAYMENT_METHODS TABLE
-CREATE TABLE IF NOT EXISTS payment_methods (
-    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-    name TEXT NOT NULL,
-    type TEXT NOT NULL CHECK (type IN ('cash', 'card', 'digital_wallet', 'bank_transfer')),
-    is_active BOOLEAN DEFAULT 1,
-    processing_fee DECIMAL(5,2) DEFAULT 0,
-    icon TEXT,
-    settings TEXT, -- JSON configuration
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
--- 8. STAFF_STATS TABLE (Gamification Core)
-CREATE TABLE IF NOT EXISTS staff_stats (
-    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-    user_id TEXT UNIQUE NOT NULL,
-    total_sales DECIMAL(12,2) DEFAULT 0,
-    total_orders INTEGER DEFAULT 0,
-    total_points INTEGER DEFAULT 0,
-    current_streak INTEGER DEFAULT 0,
-    best_streak INTEGER DEFAULT 0,
-    level INTEGER DEFAULT 1,
-    experience_points INTEGER DEFAULT 0,
-    commission_earned DECIMAL(10,2) DEFAULT 0,
-    last_sale DATETIME,
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    organization_id INTEGER NOT NULL,
+    store_id INTEGER,
+    username TEXT UNIQUE NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    phone TEXT,
+    avatar_url TEXT,
+    role TEXT NOT NULL DEFAULT 'cashier',
+    permissions JSON DEFAULT '[]',
+    employee_id TEXT,
+    department TEXT,
+    hire_date DATE,
+    salary DECIMAL(10,2),
+    commission_rate REAL DEFAULT 0.0,
+    is_active BOOLEAN DEFAULT TRUE,
+    is_verified BOOLEAN DEFAULT FALSE,
+    last_login_at DATETIME,
+    password_reset_token TEXT,
+    password_reset_expires DATETIME,
+    two_factor_secret TEXT,
+    two_factor_enabled BOOLEAN DEFAULT FALSE,
+    login_attempts INTEGER DEFAULT 0,
+    locked_until DATETIME,
+    settings JSON DEFAULT '{}',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (organization_id) REFERENCES organizations(id),
+    FOREIGN KEY (store_id) REFERENCES stores(id)
 );
 
--- 9. BADGES TABLE (Achievement System)
-CREATE TABLE IF NOT EXISTS badges (
-    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-    name TEXT NOT NULL,
-    description TEXT,
-    icon TEXT,
-    color TEXT DEFAULT '#gold',
-    criteria TEXT NOT NULL, -- JSON: {type, value, condition}
-    points INTEGER DEFAULT 100,
-    rarity TEXT DEFAULT 'common' CHECK (rarity IN ('common', 'rare', 'epic', 'legendary')),
-    is_active BOOLEAN DEFAULT 1,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
--- 10. ACHIEVEMENTS TABLE (User Badge Progress)
-CREATE TABLE IF NOT EXISTS achievements (
-    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-    user_id TEXT NOT NULL,
-    badge_id TEXT NOT NULL,
-    progress INTEGER DEFAULT 0,
-    is_completed BOOLEAN DEFAULT 0,
-    completed_at DATETIME,
+CREATE TABLE user_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    session_token TEXT UNIQUE NOT NULL,
+    refresh_token TEXT UNIQUE,
+    device_info JSON,
+    ip_address TEXT,
+    user_agent TEXT,
+    expires_at DATETIME NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (badge_id) REFERENCES badges(id),
-    UNIQUE(user_id, badge_id)
-);
-
--- 11. CHALLENGES TABLE (Daily/Weekly Tasks)
-CREATE TABLE IF NOT EXISTS challenges (
-    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-    title TEXT NOT NULL,
-    description TEXT,
-    type TEXT NOT NULL CHECK (type IN ('daily', 'weekly', 'monthly', 'special')),
-    target_value INTEGER NOT NULL,
-    reward_points INTEGER DEFAULT 50,
-    reward_badge_id TEXT,
-    start_date DATE NOT NULL,
-    end_date DATE NOT NULL,
-    is_active BOOLEAN DEFAULT 1,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (reward_badge_id) REFERENCES badges(id)
-);
-
--- 12. NOTIFICATIONS TABLE (Real-time Updates)
-CREATE TABLE IF NOT EXISTS notifications (
-    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-    user_id TEXT,
-    title TEXT NOT NULL,
-    message TEXT NOT NULL,
-    type TEXT DEFAULT 'info' CHECK (type IN ('info', 'success', 'warning', 'error')),
-    is_read BOOLEAN DEFAULT 0,
-    action_url TEXT,
-    metadata TEXT, -- JSON data
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
--- 13. INVENTORY_LOGS TABLE (Stock Movement Tracking)
-CREATE TABLE IF NOT EXISTS inventory_logs (
-    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-    product_id TEXT NOT NULL,
-    user_id TEXT NOT NULL,
-    type TEXT NOT NULL CHECK (type IN ('sale', 'restock', 'adjustment', 'waste', 'return')),
-    quantity_change INTEGER NOT NULL,
-    previous_quantity INTEGER NOT NULL,
-    new_quantity INTEGER NOT NULL,
-    reason TEXT,
-    reference_id TEXT, -- order_id for sales
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (product_id) REFERENCES products(id),
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
--- 14. SETTINGS TABLE (System Configuration)
-CREATE TABLE IF NOT EXISTS settings (
-    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-    key TEXT UNIQUE NOT NULL,
-    value TEXT,
-    type TEXT DEFAULT 'string' CHECK (type IN ('string', 'number', 'boolean', 'json')),
-    description TEXT,
-    is_public BOOLEAN DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
--- 15. ACTIVITY_LOGS TABLE (Audit Trail)
-CREATE TABLE IF NOT EXISTS activity_logs (
-    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-    user_id TEXT,
+CREATE TABLE audit_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    organization_id INTEGER NOT NULL,
+    store_id INTEGER,
     action TEXT NOT NULL,
-    entity_type TEXT NOT NULL,
-    entity_id TEXT,
-    old_values TEXT, -- JSON
-    new_values TEXT, -- JSON
+    resource_type TEXT NOT NULL,
+    resource_id INTEGER,
+    old_values JSON,
+    new_values JSON,
     ip_address TEXT,
     user_agent TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (organization_id) REFERENCES organizations(id),
+    FOREIGN KEY (store_id) REFERENCES stores(id)
 );
 
--- 16. AI_RECOMMENDATIONS TABLE (AI Features)
-CREATE TABLE IF NOT EXISTS ai_recommendations (
-    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-    type TEXT NOT NULL CHECK (type IN ('product_recommendation', 'price_optimization', 'stock_prediction', 'customer_segment')),
-    target_id TEXT, -- product_id, customer_id, etc.
-    data TEXT NOT NULL, -- JSON recommendation data
-    confidence DECIMAL(3,2), -- 0.00 to 1.00
-    status TEXT DEFAULT 'active' CHECK (status IN ('active', 'applied', 'dismissed')),
+-- ================================
+-- 3. PRODUCT MANAGEMENT
+-- ================================
+
+CREATE TABLE categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    organization_id INTEGER NOT NULL,
+    parent_id INTEGER,
+    name TEXT NOT NULL,
+    description TEXT,
+    image_url TEXT,
+    sort_order INTEGER DEFAULT 0,
+    is_active BOOLEAN DEFAULT TRUE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    expires_at DATETIME
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (organization_id) REFERENCES organizations(id),
+    FOREIGN KEY (parent_id) REFERENCES categories(id)
 );
 
--- 17. FORECASTS TABLE (Sales & Demand Prediction)
-CREATE TABLE IF NOT EXISTS forecasts (
-    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-    product_id TEXT,
-    forecast_type TEXT NOT NULL CHECK (forecast_type IN ('sales', 'demand', 'revenue', 'stock')),
-    period_type TEXT NOT NULL CHECK (period_type IN ('daily', 'weekly', 'monthly')),
-    forecast_date DATE NOT NULL,
-    predicted_value DECIMAL(12,2) NOT NULL,
-    confidence_interval DECIMAL(5,2),
-    actual_value DECIMAL(12,2),
+CREATE TABLE brands (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    organization_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    logo_url TEXT,
+    website TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (organization_id) REFERENCES organizations(id)
+);
+
+CREATE TABLE suppliers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    organization_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    contact_person TEXT,
+    email TEXT,
+    phone TEXT,
+    address TEXT,
+    city TEXT,
+    country TEXT,
+    tax_number TEXT,
+    payment_terms TEXT,
+    notes TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (organization_id) REFERENCES organizations(id)
+);
+
+CREATE TABLE products (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    organization_id INTEGER NOT NULL,
+    category_id INTEGER,
+    brand_id INTEGER,
+    supplier_id INTEGER,
+    sku TEXT UNIQUE NOT NULL,
+    barcode TEXT UNIQUE,
+    name TEXT NOT NULL,
+    description TEXT,
+    short_description TEXT,
+    images JSON DEFAULT '[]',
+    cost_price DECIMAL(10,2) NOT NULL,
+    selling_price DECIMAL(10,2) NOT NULL,
+    compare_price DECIMAL(10,2),
+    profit_margin REAL GENERATED ALWAYS AS (
+        CASE 
+            WHEN selling_price > 0 THEN ((selling_price - cost_price) / selling_price) * 100
+            ELSE 0
+        END
+    ) STORED,
+    weight REAL,
+    dimensions JSON DEFAULT '{}',
+    unit TEXT DEFAULT 'pcs',
+    min_stock_level INTEGER DEFAULT 10,
+    max_stock_level INTEGER DEFAULT 1000,
+    reorder_point INTEGER DEFAULT 20,
+    is_trackable BOOLEAN DEFAULT TRUE,
+    is_serialized BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
+    is_featured BOOLEAN DEFAULT FALSE,
+    tags JSON DEFAULT '[]',
+    attributes JSON DEFAULT '{}',
+    seo_title TEXT,
+    seo_description TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (organization_id) REFERENCES organizations(id),
+    FOREIGN KEY (category_id) REFERENCES categories(id),
+    FOREIGN KEY (brand_id) REFERENCES brands(id),
+    FOREIGN KEY (supplier_id) REFERENCES suppliers(id)
+);
+
+-- Product variants for size, color, etc.
+CREATE TABLE product_variants (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER NOT NULL,
+    sku TEXT UNIQUE NOT NULL,
+    barcode TEXT UNIQUE,
+    name TEXT NOT NULL,
+    attributes JSON NOT NULL DEFAULT '{}',
+    cost_price DECIMAL(10,2) NOT NULL,
+    selling_price DECIMAL(10,2) NOT NULL,
+    compare_price DECIMAL(10,2),
+    weight REAL,
+    images JSON DEFAULT '[]',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (product_id) REFERENCES products(id)
 );
 
--- =====================================================
--- INDEXES FOR PERFORMANCE OPTIMIZATION
--- =====================================================
+-- ================================
+-- 4. INVENTORY MANAGEMENT
+-- ================================
 
--- User indexes
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
-CREATE INDEX IF NOT EXISTS idx_users_active ON users(is_active);
+CREATE TABLE inventory (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    organization_id INTEGER NOT NULL,
+    store_id INTEGER NOT NULL,
+    product_id INTEGER NOT NULL,
+    variant_id INTEGER,
+    quantity_on_hand INTEGER NOT NULL DEFAULT 0,
+    quantity_allocated INTEGER NOT NULL DEFAULT 0,
+    quantity_available INTEGER GENERATED ALWAYS AS (quantity_on_hand - quantity_allocated) STORED,
+    reorder_point INTEGER DEFAULT 20,
+    max_stock_level INTEGER DEFAULT 1000,
+    last_counted_at DATETIME,
+    last_received_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (organization_id) REFERENCES organizations(id),
+    FOREIGN KEY (store_id) REFERENCES stores(id),
+    FOREIGN KEY (product_id) REFERENCES products(id),
+    FOREIGN KEY (variant_id) REFERENCES product_variants(id),
+    UNIQUE(store_id, product_id, variant_id)
+);
 
--- Product indexes
-CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku);
-CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode);
-CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
-CREATE INDEX IF NOT EXISTS idx_products_active ON products(is_active);
+CREATE TABLE stock_movements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    organization_id INTEGER NOT NULL,
+    store_id INTEGER NOT NULL,
+    product_id INTEGER NOT NULL,
+    variant_id INTEGER,
+    movement_type TEXT NOT NULL, -- 'in', 'out', 'transfer', 'adjustment', 'sale', 'return'
+    quantity INTEGER NOT NULL,
+    previous_quantity INTEGER NOT NULL,
+    new_quantity INTEGER NOT NULL,
+    unit_cost DECIMAL(10,2),
+    total_cost DECIMAL(10,2),
+    reference_type TEXT, -- 'order', 'transfer', 'adjustment'
+    reference_id INTEGER,
+    reason TEXT,
+    notes TEXT,
+    created_by INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (organization_id) REFERENCES organizations(id),
+    FOREIGN KEY (store_id) REFERENCES stores(id),
+    FOREIGN KEY (product_id) REFERENCES products(id),
+    FOREIGN KEY (variant_id) REFERENCES product_variants(id),
+    FOREIGN KEY (created_by) REFERENCES users(id)
+);
 
--- Order indexes
-CREATE INDEX IF NOT EXISTS idx_orders_number ON orders(order_number);
-CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
-CREATE INDEX IF NOT EXISTS idx_orders_cashier ON orders(cashier_id);
-CREATE INDEX IF NOT EXISTS idx_orders_date ON orders(created_at);
-CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(order_status);
+CREATE TABLE stock_adjustments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    organization_id INTEGER NOT NULL,
+    store_id INTEGER NOT NULL,
+    adjustment_number TEXT UNIQUE NOT NULL,
+    reason TEXT NOT NULL,
+    notes TEXT,
+    status TEXT DEFAULT 'pending', -- 'pending', 'approved', 'rejected'
+    total_items INTEGER DEFAULT 0,
+    total_cost_impact DECIMAL(10,2) DEFAULT 0,
+    created_by INTEGER NOT NULL,
+    approved_by INTEGER,
+    approved_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (organization_id) REFERENCES organizations(id),
+    FOREIGN KEY (store_id) REFERENCES stores(id),
+    FOREIGN KEY (created_by) REFERENCES users(id),
+    FOREIGN KEY (approved_by) REFERENCES users(id)
+);
 
--- Order items indexes
-CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
-CREATE INDEX IF NOT EXISTS idx_order_items_product ON order_items(product_id);
+CREATE TABLE stock_adjustment_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    adjustment_id INTEGER NOT NULL,
+    product_id INTEGER NOT NULL,
+    variant_id INTEGER,
+    expected_quantity INTEGER NOT NULL,
+    actual_quantity INTEGER NOT NULL,
+    difference INTEGER GENERATED ALWAYS AS (actual_quantity - expected_quantity) STORED,
+    unit_cost DECIMAL(10,2) NOT NULL,
+    cost_impact DECIMAL(10,2) GENERATED ALWAYS AS (difference * unit_cost) STORED,
+    reason TEXT,
+    FOREIGN KEY (adjustment_id) REFERENCES stock_adjustments(id),
+    FOREIGN KEY (product_id) REFERENCES products(id),
+    FOREIGN KEY (variant_id) REFERENCES product_variants(id)
+);
 
--- Customer indexes
-CREATE INDEX IF NOT EXISTS idx_customers_email ON customers(email);
-CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone);
-CREATE INDEX IF NOT EXISTS idx_customers_active ON customers(is_active);
+-- ================================
+-- 5. CUSTOMER MANAGEMENT
+-- ================================
 
--- Staff stats indexes
-CREATE INDEX IF NOT EXISTS idx_staff_stats_user ON staff_stats(user_id);
-CREATE INDEX IF NOT EXISTS idx_staff_stats_points ON staff_stats(total_points);
-CREATE INDEX IF NOT EXISTS idx_staff_stats_level ON staff_stats(level);
+CREATE TABLE customers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    organization_id INTEGER NOT NULL,
+    customer_number TEXT UNIQUE,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    email TEXT UNIQUE,
+    phone TEXT,
+    date_of_birth DATE,
+    gender TEXT,
+    address TEXT,
+    city TEXT,
+    state TEXT,
+    postal_code TEXT,
+    country TEXT DEFAULT 'VN',
+    customer_group TEXT DEFAULT 'regular',
+    loyalty_points INTEGER DEFAULT 0,
+    total_spent DECIMAL(12,2) DEFAULT 0,
+    total_orders INTEGER DEFAULT 0,
+    average_order_value DECIMAL(10,2) DEFAULT 0,
+    last_order_date DATE,
+    acquisition_source TEXT,
+    preferences JSON DEFAULT '{}',
+    notes TEXT,
+    is_vip BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (organization_id) REFERENCES organizations(id)
+);
 
--- Achievement indexes
-CREATE INDEX IF NOT EXISTS idx_achievements_user ON achievements(user_id);
-CREATE INDEX IF NOT EXISTS idx_achievements_badge ON achievements(badge_id);
-CREATE INDEX IF NOT EXISTS idx_achievements_completed ON achievements(is_completed);
+CREATE TABLE customer_addresses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id INTEGER NOT NULL,
+    type TEXT NOT NULL DEFAULT 'shipping', -- 'billing', 'shipping'
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    company TEXT,
+    address_line_1 TEXT NOT NULL,
+    address_line_2 TEXT,
+    city TEXT NOT NULL,
+    state TEXT,
+    postal_code TEXT,
+    country TEXT DEFAULT 'VN',
+    phone TEXT,
+    is_default BOOLEAN DEFAULT FALSE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (customer_id) REFERENCES customers(id)
+);
 
--- Notification indexes
-CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(is_read);
-CREATE INDEX IF NOT EXISTS idx_notifications_date ON notifications(created_at);
+CREATE TABLE loyalty_programs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    organization_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    points_per_currency REAL DEFAULT 1.0, -- Points earned per VND spent
+    currency_per_point REAL DEFAULT 1.0,  -- VND value per point
+    minimum_spend DECIMAL(10,2) DEFAULT 0,
+    expiry_months INTEGER DEFAULT 12,
+    tier_thresholds JSON DEFAULT '{}',
+    rules JSON DEFAULT '{}',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (organization_id) REFERENCES organizations(id)
+);
 
--- Inventory logs indexes
-CREATE INDEX IF NOT EXISTS idx_inventory_logs_product ON inventory_logs(product_id);
-CREATE INDEX IF NOT EXISTS idx_inventory_logs_user ON inventory_logs(user_id);
-CREATE INDEX IF NOT EXISTS idx_inventory_logs_type ON inventory_logs(type);
-CREATE INDEX IF NOT EXISTS idx_inventory_logs_date ON inventory_logs(created_at);
+CREATE TABLE loyalty_transactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id INTEGER NOT NULL,
+    order_id INTEGER,
+    transaction_type TEXT NOT NULL, -- 'earned', 'redeemed', 'expired', 'adjusted'
+    points INTEGER NOT NULL,
+    description TEXT,
+    expiry_date DATE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (customer_id) REFERENCES customers(id),
+    FOREIGN KEY (order_id) REFERENCES orders(id)
+);
 
--- Activity logs indexes
-CREATE INDEX IF NOT EXISTS idx_activity_logs_user ON activity_logs(user_id);
-CREATE INDEX IF NOT EXISTS idx_activity_logs_entity ON activity_logs(entity_type, entity_id);
-CREATE INDEX IF NOT EXISTS idx_activity_logs_date ON activity_logs(created_at);
+-- ================================
+-- 6. ORDER MANAGEMENT
+-- ================================
 
--- AI recommendations indexes
-CREATE INDEX IF NOT EXISTS idx_ai_recommendations_type ON ai_recommendations(type);
-CREATE INDEX IF NOT EXISTS idx_ai_recommendations_target ON ai_recommendations(target_id);
-CREATE INDEX IF NOT EXISTS idx_ai_recommendations_status ON ai_recommendations(status);
+CREATE TABLE orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    organization_id INTEGER NOT NULL,
+    store_id INTEGER NOT NULL,
+    order_number TEXT UNIQUE NOT NULL,
+    customer_id INTEGER,
+    cashier_id INTEGER NOT NULL,
+    order_type TEXT DEFAULT 'sale', -- 'sale', 'return', 'exchange', 'quote'
+    status TEXT DEFAULT 'pending', -- 'pending', 'processing', 'completed', 'cancelled', 'refunded'
+    subtotal DECIMAL(12,2) NOT NULL DEFAULT 0,
+    discount_amount DECIMAL(10,2) DEFAULT 0,
+    discount_type TEXT, -- 'percentage', 'fixed', 'coupon'
+    discount_reason TEXT,
+    tax_amount DECIMAL(10,2) DEFAULT 0,
+    tax_rate REAL DEFAULT 0.1,
+    total_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+    paid_amount DECIMAL(12,2) DEFAULT 0,
+    change_amount DECIMAL(10,2) DEFAULT 0,
+    points_earned INTEGER DEFAULT 0,
+    points_redeemed INTEGER DEFAULT 0,
+    payment_status TEXT DEFAULT 'pending', -- 'pending', 'paid', 'partial', 'refunded'
+    notes TEXT,
+    receipt_url TEXT,
+    void_reason TEXT,
+    voided_by INTEGER,
+    voided_at DATETIME,
+    refunded_amount DECIMAL(12,2) DEFAULT 0,
+    refunded_at DATETIME,
+    refunded_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (organization_id) REFERENCES organizations(id),
+    FOREIGN KEY (store_id) REFERENCES stores(id),
+    FOREIGN KEY (customer_id) REFERENCES customers(id),
+    FOREIGN KEY (cashier_id) REFERENCES users(id),
+    FOREIGN KEY (voided_by) REFERENCES users(id),
+    FOREIGN KEY (refunded_by) REFERENCES users(id)
+);
 
--- Forecast indexes
-CREATE INDEX IF NOT EXISTS idx_forecasts_product ON forecasts(product_id);
-CREATE INDEX IF NOT EXISTS idx_forecasts_type ON forecasts(forecast_type);
-CREATE INDEX IF NOT EXISTS idx_forecasts_date ON forecasts(forecast_date);
+CREATE TABLE order_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id INTEGER NOT NULL,
+    product_id INTEGER NOT NULL,
+    variant_id INTEGER,
+    quantity INTEGER NOT NULL,
+    unit_price DECIMAL(10,2) NOT NULL,
+    discount_amount DECIMAL(10,2) DEFAULT 0,
+    total_amount DECIMAL(10,2) NOT NULL,
+    cost_price DECIMAL(10,2),
+    profit_amount DECIMAL(10,2) GENERATED ALWAYS AS (total_amount - (cost_price * quantity)) STORED,
+    serial_numbers JSON DEFAULT '[]',
+    notes TEXT,
+    FOREIGN KEY (order_id) REFERENCES orders(id),
+    FOREIGN KEY (product_id) REFERENCES products(id),
+    FOREIGN KEY (variant_id) REFERENCES product_variants(id)
+);
+
+CREATE TABLE payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id INTEGER NOT NULL,
+    payment_method TEXT NOT NULL, -- 'cash', 'card', 'digital', 'loyalty', 'bank_transfer'
+    amount DECIMAL(10,2) NOT NULL,
+    currency TEXT DEFAULT 'VND',
+    reference_number TEXT,
+    transaction_id TEXT,
+    gateway TEXT, -- 'stripe', 'momo', 'zalopay', 'vnpay'
+    gateway_response JSON,
+    status TEXT DEFAULT 'pending', -- 'pending', 'completed', 'failed', 'refunded'
+    processed_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES orders(id)
+);
+
+-- ================================
+-- 7. GAMIFICATION SYSTEM
+-- ================================
+
+CREATE TABLE achievements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    organization_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    icon TEXT,
+    badge_color TEXT DEFAULT '#1890ff',
+    category TEXT, -- 'sales', 'customer_service', 'attendance', 'training'
+    condition_type TEXT NOT NULL, -- 'sales_amount', 'sales_count', 'customer_rating', 'days_present'
+    condition_value DECIMAL(10,2) NOT NULL,
+    condition_period TEXT, -- 'daily', 'weekly', 'monthly', 'yearly', 'all_time'
+    points_reward INTEGER DEFAULT 0,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (organization_id) REFERENCES organizations(id)
+);
+
+CREATE TABLE user_achievements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    achievement_id INTEGER NOT NULL,
+    earned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    progress_value DECIMAL(10,2),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (achievement_id) REFERENCES achievements(id),
+    UNIQUE(user_id, achievement_id)
+);
+
+CREATE TABLE gamification_stats (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    period_type TEXT NOT NULL, -- 'daily', 'weekly', 'monthly', 'yearly'
+    period_date DATE NOT NULL,
+    total_sales DECIMAL(12,2) DEFAULT 0,
+    total_orders INTEGER DEFAULT 0,
+    total_customers INTEGER DEFAULT 0,
+    average_order_value DECIMAL(10,2) DEFAULT 0,
+    points_earned INTEGER DEFAULT 0,
+    rank_position INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    UNIQUE(user_id, period_type, period_date)
+);
+
+-- ================================
+-- 8. ANALYTICS & REPORTING
+-- ================================
+
+CREATE TABLE analytics_daily (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    organization_id INTEGER NOT NULL,
+    store_id INTEGER,
+    date DATE NOT NULL,
+    total_sales DECIMAL(12,2) DEFAULT 0,
+    total_orders INTEGER DEFAULT 0,
+    total_customers INTEGER DEFAULT 0,
+    new_customers INTEGER DEFAULT 0,
+    average_order_value DECIMAL(10,2) DEFAULT 0,
+    total_profit DECIMAL(12,2) DEFAULT 0,
+    profit_margin REAL DEFAULT 0,
+    total_discounts DECIMAL(10,2) DEFAULT 0,
+    total_refunds DECIMAL(10,2) DEFAULT 0,
+    top_selling_products JSON DEFAULT '[]',
+    payment_method_breakdown JSON DEFAULT '{}',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (organization_id) REFERENCES organizations(id),
+    FOREIGN KEY (store_id) REFERENCES stores(id),
+    UNIQUE(organization_id, store_id, date)
+);
+
+-- ================================
+-- 9. PROMOTIONS & DISCOUNTS
+-- ================================
+
+CREATE TABLE promotions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    organization_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    type TEXT NOT NULL, -- 'percentage', 'fixed_amount', 'buy_x_get_y', 'free_shipping'
+    value DECIMAL(10,2) NOT NULL,
+    minimum_amount DECIMAL(10,2),
+    maximum_discount DECIMAL(10,2),
+    usage_limit INTEGER,
+    usage_count INTEGER DEFAULT 0,
+    customer_usage_limit INTEGER DEFAULT 1,
+    applicable_products JSON DEFAULT '[]',
+    applicable_categories JSON DEFAULT '[]',
+    customer_groups JSON DEFAULT '[]',
+    start_date DATETIME NOT NULL,
+    end_date DATETIME NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (organization_id) REFERENCES organizations(id)
+);
+
+CREATE TABLE promotion_usage (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    promotion_id INTEGER NOT NULL,
+    order_id INTEGER NOT NULL,
+    customer_id INTEGER,
+    discount_amount DECIMAL(10,2) NOT NULL,
+    used_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (promotion_id) REFERENCES promotions(id),
+    FOREIGN KEY (order_id) REFERENCES orders(id),
+    FOREIGN KEY (customer_id) REFERENCES customers(id)
+);
+
+-- ================================
+-- INDEXES FOR PERFORMANCE
+-- ================================
+
+-- Users indexes
+CREATE INDEX idx_users_organization_store ON users(organization_id, store_id);
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_role ON users(role);
+
+-- Products indexes
+CREATE INDEX idx_products_organization ON products(organization_id);
+CREATE INDEX idx_products_category ON products(category_id);
+CREATE INDEX idx_products_sku ON products(sku);
+CREATE INDEX idx_products_barcode ON products(barcode);
+CREATE INDEX idx_products_active ON products(is_active);
+
+-- Inventory indexes
+CREATE INDEX idx_inventory_store_product ON inventory(store_id, product_id);
+CREATE INDEX idx_inventory_organization ON inventory(organization_id);
+
+-- Orders indexes
+CREATE INDEX idx_orders_organization_store ON orders(organization_id, store_id);
+CREATE INDEX idx_orders_customer ON orders(customer_id);
+CREATE INDEX idx_orders_cashier ON orders(cashier_id);
+CREATE INDEX idx_orders_date ON orders(created_at);
+CREATE INDEX idx_orders_status ON orders(status);
+CREATE INDEX idx_orders_number ON orders(order_number);
+
+-- Stock movements indexes
+CREATE INDEX idx_stock_movements_product ON stock_movements(product_id);
+CREATE INDEX idx_stock_movements_store ON stock_movements(store_id);
+CREATE INDEX idx_stock_movements_date ON stock_movements(created_at);
+CREATE INDEX idx_stock_movements_type ON stock_movements(movement_type);
+
+-- Customers indexes
+CREATE INDEX idx_customers_organization ON customers(organization_id);
+CREATE INDEX idx_customers_email ON customers(email);
+CREATE INDEX idx_customers_phone ON customers(phone);
+CREATE INDEX idx_customers_number ON customers(customer_number);
+
+-- Analytics indexes
+CREATE INDEX idx_analytics_daily_org_store_date ON analytics_daily(organization_id, store_id, date);
+CREATE INDEX idx_analytics_daily_date ON analytics_daily(date);
+
+-- Gamification indexes
+CREATE INDEX idx_user_achievements_user ON user_achievements(user_id);
+CREATE INDEX idx_gamification_stats_user_period ON gamification_stats(user_id, period_type, period_date);
+
+-- Audit logs indexes
+CREATE INDEX idx_audit_logs_user ON audit_logs(user_id);
+CREATE INDEX idx_audit_logs_organization ON audit_logs(organization_id);
+CREATE INDEX idx_audit_logs_date ON audit_logs(created_at);
+CREATE INDEX idx_audit_logs_action ON audit_logs(action);
+
+-- ================================
+-- TRIGGERS FOR AUTO-UPDATES
+-- ================================
+
+-- Auto-update timestamps
+CREATE TRIGGER update_users_timestamp 
+    AFTER UPDATE ON users
+    BEGIN
+        UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+
+CREATE TRIGGER update_products_timestamp 
+    AFTER UPDATE ON products
+    BEGIN
+        UPDATE products SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+
+CREATE TRIGGER update_customers_timestamp 
+    AFTER UPDATE ON customers
+    BEGIN
+        UPDATE customers SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+
+-- Auto-update customer stats after order
+CREATE TRIGGER update_customer_stats_after_order
+    AFTER INSERT ON orders
+    WHEN NEW.status = 'completed' AND NEW.customer_id IS NOT NULL
+    BEGIN
+        UPDATE customers SET 
+            total_spent = total_spent + NEW.total_amount,
+            total_orders = total_orders + 1,
+            average_order_value = (total_spent + NEW.total_amount) / (total_orders + 1),
+            last_order_date = DATE(NEW.created_at),
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = NEW.customer_id;
+    END;
+
+-- Auto-update inventory after stock movement
+CREATE TRIGGER update_inventory_after_movement
+    AFTER INSERT ON stock_movements
+    BEGIN
+        UPDATE inventory SET 
+            quantity_on_hand = NEW.new_quantity,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE store_id = NEW.store_id 
+            AND product_id = NEW.product_id 
+            AND (variant_id = NEW.variant_id OR (variant_id IS NULL AND NEW.variant_id IS NULL));
+    END;

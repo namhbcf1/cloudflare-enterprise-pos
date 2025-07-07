@@ -1,458 +1,246 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta name="description" content="Enterprise Point of Sale system with gamification, AI recommendations, and comprehensive business management features" />
-  <meta name="keywords" content="POS, point of sale, retail, inventory, gamification, AI, business management, cashier, admin" />
-  <meta name="author" content="Your Company" />
-  <meta name="robots" content="index, follow" />
-  
-  <!-- Security Headers -->
-  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
-  <meta http-equiv="X-Frame-Options" content="DENY" />
-  <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
-  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
-  
-  <!-- PWA Meta Tags -->
-  <meta name="theme-color" content="#1890ff" />
-  <meta name="background-color" content="#ffffff" />
-  <meta name="display" content="standalone" />
-  <meta name="orientation" content="portrait" />
-  
-  <!-- iOS PWA Support -->
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="Enterprise POS" />
-  <meta name="apple-touch-fullscreen" content="yes" />
-  
-  <!-- Windows PWA Support -->
-  <meta name="msapplication-TileColor" content="#1890ff" />
-  <meta name="msapplication-TileImage" content="/icons/mstile-144x144.png" />
-  <meta name="msapplication-config" content="/browserconfig.xml" />
-  
-  <!-- Open Graph / Social Media -->
-  <meta property="og:type" content="website" />
-  <meta property="og:title" content="Enterprise POS System" />
-  <meta property="og:description" content="Complete Point of Sale system with gamification and AI features" />
-  <meta property="og:image" content="/images/og-image.png" />
-  <meta property="og:url" content="https://enterprise-pos-frontend.pages.dev" />
-  <meta property="og:site_name" content="Enterprise POS" />
-  
-  <!-- Twitter Card -->
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Enterprise POS System" />
-  <meta name="twitter:description" content="Complete Point of Sale system with gamification and AI features" />
-  <meta name="twitter:image" content="/images/twitter-card.png" />
-  
-  <!-- Favicons -->
-  <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg" />
-  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png" />
-  <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png" />
-  <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
-  <link rel="mask-icon" href="/icons/safari-pinned-tab.svg" color="#1890ff" />
-  
-  <!-- Manifest -->
-  <link rel="manifest" href="/manifest.json" />
-  
-  <!-- Preconnect to improve performance -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
-  
-  <!-- DNS Prefetch -->
-  <link rel="dns-prefetch" href="//your-api-domain.workers.dev" />
-  <link rel="dns-prefetch" href="//your-cdn-domain.com" />
-  
-  <!-- Critical CSS - Inline for performance -->
-  <style>
-    /* Critical loading styles */
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Cloudflare Enterprise POS - Hệ thống bán hàng doanh nghiệp miễn phí 100%">
+    <meta name="keywords" content="POS, Point of Sale, Cloudflare, Enterprise, Bán hàng, Quản lý">
+    <meta name="author" content="Cloudflare Enterprise POS">
     
-    html {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-      line-height: 1.15;
-      -webkit-text-size-adjust: 100%;
-      -webkit-tap-highlight-color: transparent;
-    }
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#1890ff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="CF POS">
+    <meta name="mobile-web-app-capable" content="yes">
     
-    body {
-      margin: 0;
-      font-size: 14px;
-      font-variant: tabular-nums;
-      line-height: 1.5715;
-      background-color: #f0f2f5;
-      color: rgba(0, 0, 0, 0.85);
-      font-feature-settings: 'tnum';
-    }
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
     
-    #root {
-      min-height: 100vh;
-      position: relative;
-    }
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
     
-    /* Loading screen styles */
-    .app-loading {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      text-align: center;
-      padding: 20px;
-    }
+    <!-- Preconnect for performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     
-    .loading-logo {
-      width: 120px;
-      height: 120px;
-      margin-bottom: 30px;
-      animation: pulse 2s infinite;
-    }
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
-    .loading-text {
-      font-size: 24px;
-      font-weight: 600;
-      margin-bottom: 10px;
-      letter-spacing: 0.5px;
-    }
+    <!-- Ant Design CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/antd/5.12.8/reset.min.css">
     
-    .loading-subtitle {
-      font-size: 16px;
-      opacity: 0.8;
-      margin-bottom: 30px;
-    }
+    <title>Cloudflare Enterprise POS - Hệ thống bán hàng thông minh</title>
     
-    .loading-spinner {
-      width: 40px;
-      height: 40px;
-      border: 4px solid rgba(255, 255, 255, 0.3);
-      border-top: 4px solid white;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-    
-    .loading-progress {
-      width: 200px;
-      height: 4px;
-      background: rgba(255, 255, 255, 0.3);
-      border-radius: 2px;
-      overflow: hidden;
-      margin-top: 20px;
-    }
-    
-    .loading-progress-bar {
-      height: 100%;
-      background: white;
-      border-radius: 2px;
-      animation: progress 3s ease-in-out infinite;
-    }
-    
-    .loading-tips {
-      position: absolute;
-      bottom: 40px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 14px;
-      opacity: 0.7;
-      max-width: 300px;
-      line-height: 1.4;
-    }
-    
-    @keyframes pulse {
-      0% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.05); opacity: 0.8; }
-      100% { transform: scale(1); opacity: 1; }
-    }
-    
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    
-    @keyframes progress {
-      0% { width: 0%; }
-      50% { width: 70%; }
-      100% { width: 100%; }
-    }
-    
-    /* Hide loading when app is ready */
-    .app-ready .app-loading {
-      display: none;
-    }
-    
-    /* PWA Install Prompt */
-    .pwa-install-prompt {
-      position: fixed;
-      bottom: 20px;
-      left: 20px;
-      right: 20px;
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      padding: 16px;
-      display: none;
-      z-index: 9999;
-      animation: slideUp 0.3s ease-out;
-    }
-    
-    .pwa-install-content {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    
-    .pwa-install-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 8px;
-    }
-    
-    .pwa-install-text {
-      flex: 1;
-    }
-    
-    .pwa-install-title {
-      font-weight: 600;
-      margin-bottom: 4px;
-    }
-    
-    .pwa-install-subtitle {
-      font-size: 12px;
-      color: #666;
-    }
-    
-    .pwa-install-buttons {
-      display: flex;
-      gap: 8px;
-    }
-    
-    .pwa-install-btn {
-      padding: 8px 16px;
-      border: none;
-      border-radius: 4px;
-      font-size: 14px;
-      cursor: pointer;
-      font-weight: 500;
-    }
-    
-    .pwa-install-btn.primary {
-      background: #1890ff;
-      color: white;
-    }
-    
-    .pwa-install-btn.secondary {
-      background: #f0f0f0;
-      color: #333;
-    }
-    
-    @keyframes slideUp {
-      from { transform: translateY(100%); }
-      to { transform: translateY(0); }
-    }
-    
-    /* Responsive adjustments */
-    @media (max-width: 768px) {
-      .loading-text { font-size: 20px; }
-      .loading-subtitle { font-size: 14px; }
-      .loading-tips { font-size: 12px; bottom: 20px; }
-      .pwa-install-prompt { 
-        left: 10px; 
-        right: 10px; 
-        bottom: 10px; 
-      }
-    }
-    
-    /* Dark mode support */
-    @media (prefers-color-scheme: dark) {
-      body {
-        background-color: #1f1f1f;
-        color: rgba(255, 255, 255, 0.85);
-      }
-    }
-    
-    /* Reduced motion support */
-    @media (prefers-reduced-motion: reduce) {
-      .loading-logo,
-      .loading-spinner,
-      .loading-progress-bar {
-        animation: none;
-      }
-    }
-  </style>
-  
-  <title>Enterprise POS System</title>
+    <style>
+        /* Loading Screen Styles */
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease-out;
+        }
+        
+        .loading-logo {
+            width: 120px;
+            height: 120px;
+            margin-bottom: 2rem;
+            animation: pulse 2s infinite;
+        }
+        
+        .loading-text {
+            color: white;
+            font-family: 'Inter', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+        
+        .loading-subtext {
+            color: rgba(255, 255, 255, 0.8);
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            text-align: center;
+            max-width: 400px;
+            line-height: 1.5;
+        }
+        
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-top: 2rem;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* App Container */
+        #root {
+            min-height: 100vh;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        /* Global Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            margin: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background-color: #f5f5f5;
+        }
+        
+        /* Hide loading screen when app is ready */
+        .app-loaded #loading-screen {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .loading-logo {
+                width: 80px;
+                height: 80px;
+            }
+            
+            .loading-text {
+                font-size: 1.25rem;
+            }
+            
+            .loading-subtext {
+                font-size: 0.9rem;
+                padding: 0 2rem;
+            }
+        }
+        
+        /* Touch optimizations for mobile */
+        @media (hover: none) and (pointer: coarse) {
+            * {
+                -webkit-tap-highlight-color: transparent;
+            }
+        }
+    </style>
 </head>
 <body>
-  <!-- Main App Container -->
-  <div id="root">
-    <!-- Initial Loading Screen -->
-    <div class="app-loading">
-      <svg class="loading-logo" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <!-- Enterprise POS Logo -->
-        <circle cx="100" cy="100" r="90" stroke="currentColor" stroke-width="4" fill="none" opacity="0.3"/>
-        <circle cx="100" cy="100" r="60" stroke="currentColor" stroke-width="6" fill="none"/>
-        <circle cx="100" cy="100" r="30" fill="currentColor"/>
-        <rect x="85" y="85" width="30" height="30" rx="4" fill="white"/>
-        <circle cx="100" cy="100" r="8" fill="currentColor"/>
-      </svg>
-      
-      <div class="loading-text">Enterprise POS</div>
-      <div class="loading-subtitle">Loading your business management system...</div>
-      
-      <div class="loading-spinner"></div>
-      
-      <div class="loading-progress">
-        <div class="loading-progress-bar"></div>
-      </div>
-      
-      <div class="loading-tips">
-        💡 Tip: Add this app to your home screen for the best experience!
-      </div>
+    <!-- Loading Screen -->
+    <div id="loading-screen">
+        <svg class="loading-logo" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="60" cy="60" r="50" stroke="white" stroke-width="4" fill="none" opacity="0.3"/>
+            <rect x="35" y="35" width="50" height="50" rx="8" fill="white"/>
+            <rect x="45" y="45" width="10" height="10" rx="2" fill="#667eea"/>
+            <rect x="65" y="45" width="10" height="10" rx="2" fill="#667eea"/>
+            <rect x="45" y="65" width="30" height="4" rx="2" fill="#667eea"/>
+        </svg>
+        
+        <div class="loading-text">Cloudflare Enterprise POS</div>
+        <div class="loading-subtext">
+            Đang tải hệ thống bán hàng thông minh<br>
+            Powered by Cloudflare Edge Computing
+        </div>
+        <div class="loading-spinner"></div>
     </div>
-  </div>
-  
-  <!-- PWA Install Prompt -->
-  <div id="pwa-install-prompt" class="pwa-install-prompt">
-    <div class="pwa-install-content">
-      <img src="/icons/pwa-64x64.png" alt="App Icon" class="pwa-install-icon" />
-      <div class="pwa-install-text">
-        <div class="pwa-install-title">Install Enterprise POS</div>
-        <div class="pwa-install-subtitle">Add to home screen for quick access</div>
-      </div>
-      <div class="pwa-install-buttons">
-        <button id="pwa-install-btn" class="pwa-install-btn primary">Install</button>
-        <button id="pwa-dismiss-btn" class="pwa-install-btn secondary">Later</button>
-      </div>
-    </div>
-  </div>
-  
-  <!-- Service Worker Registration -->
-  <script>
-    // Service Worker registration
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
-          .then((registration) => {
-            console.log('SW registered: ', registration);
-          })
-          .catch((registrationError) => {
-            console.log('SW registration failed: ', registrationError);
-          });
-      });
-    }
     
-    // PWA Install Prompt
-    let deferredPrompt;
+    <!-- Main App Container -->
+    <div id="root"></div>
     
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      
-      // Show custom install prompt
-      const installPrompt = document.getElementById('pwa-install-prompt');
-      installPrompt.style.display = 'block';
-    });
-    
-    document.getElementById('pwa-install-btn').addEventListener('click', () => {
-      const installPrompt = document.getElementById('pwa-install-prompt');
-      installPrompt.style.display = 'none';
-      
-      if (deferredPrompt) {
-        deferredPrompt.prompt();
-        deferredPrompt.userChoice.then((choiceResult) => {
-          if (choiceResult.outcome === 'accepted') {
-            console.log('User accepted the PWA install prompt');
-          }
-          deferredPrompt = null;
+    <!-- Service Worker Registration -->
+    <script>
+        // Register Service Worker for PWA functionality
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(function(registration) {
+                        console.log('ServiceWorker registration successful');
+                    })
+                    .catch(function(err) {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+        
+        // Hide loading screen when app is ready
+        window.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                document.body.classList.add('app-loaded');
+                setTimeout(() => {
+                    const loadingScreen = document.getElementById('loading-screen');
+                    if (loadingScreen) {
+                        loadingScreen.remove();
+                    }
+                }, 500);
+            }, 1500); // Minimum loading time for UX
         });
-      }
-    });
+        
+        // PWA Install Prompt
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            // Store the event for later use
+            window.showInstallPrompt = () => {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    deferredPrompt.userChoice.then((choiceResult) => {
+                        if (choiceResult.outcome === 'accepted') {
+                            console.log('User accepted the A2HS prompt');
+                        }
+                        deferredPrompt = null;
+                    });
+                }
+            };
+        });
+        
+        // Performance monitoring
+        window.addEventListener('load', () => {
+            // Track page load performance
+            if ('performance' in window) {
+                const perfData = performance.getEntriesByType('navigation')[0];
+                console.log('Page load time:', perfData.loadEventEnd - perfData.fetchStart, 'ms');
+            }
+        });
+        
+        // Error tracking
+        window.addEventListener('error', (event) => {
+            console.error('Global error:', event.error);
+            // Here you can send errors to your analytics service
+        });
+        
+        // Unhandled promise rejection tracking
+        window.addEventListener('unhandledrejection', (event) => {
+            console.error('Unhandled promise rejection:', event.reason);
+            // Here you can send errors to your analytics service
+        });
+    </script>
     
-    document.getElementById('pwa-dismiss-btn').addEventListener('click', () => {
-      const installPrompt = document.getElementById('pwa-install-prompt');
-      installPrompt.style.display = 'none';
-    });
-    
-    // App installed event
-    window.addEventListener('appinstalled', (evt) => {
-      console.log('PWA was installed');
-    });
-    
-    // Performance monitoring
-    window.addEventListener('load', () => {
-      // Mark app as ready
-      document.body.classList.add('app-ready');
-      
-      // Performance metrics
-      if ('performance' in window) {
-        const perfData = performance.getEntriesByType('navigation')[0];
-        console.log('App load time:', perfData.loadEventEnd - perfData.fetchStart, 'ms');
-      }
-    });
-    
-    // Error handling
-    window.addEventListener('error', (event) => {
-      console.error('Global error:', event.error);
-    });
-    
-    window.addEventListener('unhandledrejection', (event) => {
-      console.error('Unhandled promise rejection:', event.reason);
-    });
-    
-    // Theme detection
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      document.documentElement.setAttribute('data-theme', 'dark');
-    }
-    
-    // Viewport height fix for mobile
-    function setVH() {
-      let vh = window.innerHeight * 0.01;
-      document.documentElement.style.setProperty('--vh', `${vh}px`);
-    }
-    
-    setVH();
-    window.addEventListener('resize', setVH);
-    
-    // Disable zoom on iOS
-    document.addEventListener('gesturestart', function (e) {
-      e.preventDefault();
-    });
-    
-    // Prevent pull-to-refresh on mobile
-    document.addEventListener('touchstart', function(e) {
-      if (e.touches.length > 1) {
-        e.preventDefault();
-      }
-    }, { passive: false });
-    
-    let lastTouchEnd = 0;
-    document.addEventListener('touchend', function (event) {
-      const now = (new Date()).getTime();
-      if (now - lastTouchEnd <= 300) {
-        event.preventDefault();
-      }
-      lastTouchEnd = now;
-    }, false);
-  </script>
-  
-  <!-- Module script for modern browsers -->
-  <script type="module" src="/src/main.jsx"></script>
-  
-  <!-- Fallback for older browsers -->
-  <script nomodule>
-    document.getElementById('root').innerHTML = `
-      <div style="text-align: center; padding: 50px; font-family: Arial, sans-serif;">
-        <h2>Browser Not Supported</h2>
-        <p>Please use a modern browser like Chrome, Firefox, Safari, or Edge to access this application.</p>
-        <p>Your current browser does not support the required features.</p>
-      </div>
-    `;
-  </script>
+    <!-- Module Script for React App -->
+    <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>

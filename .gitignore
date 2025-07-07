@@ -1,3 +1,7 @@
+# ================================
+# Cloudflare Enterprise POS .gitignore
+# ================================
+
 # Dependencies
 node_modules/
 npm-debug.log*
@@ -6,40 +10,47 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Build outputs
+dist/
+build/
+.output/
+.vercel/
+.netlify/
+
+# Frontend specific
+frontend/dist/
+frontend/build/
+frontend/.vite/
+frontend/.cache/
+frontend/.parcel-cache/
+
+# Backend specific  
+backend/dist/
+backend/build/
+backend/.wrangler/
+backend/wrangler.toml.bak
+
 # Environment variables
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
-.dev.vars
+.env.example
 
-# Build outputs
-dist/
-build/
-.output/
-.vercel/
-.wrangler/
-
-# Cloudflare
+# Cloudflare specific
 .wrangler/
 wrangler.toml.bak
+.dev.vars
+.secrets/
 
-# IDE and editors
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+# Database
+*.db
+*.sqlite
+*.sqlite3
+database.db
+db.sqlite
 
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
 # Logs
 logs/
 *.log
@@ -54,12 +65,11 @@ pids/
 *.pid
 *.seed
 *.pid.lock
+*.tgz
 
 # Coverage directory used by tools like istanbul
 coverage/
 *.lcov
-
-# nyc test coverage
 .nyc_output/
 
 # Dependency directories
@@ -69,7 +79,7 @@ jspm_packages/
 *.tsbuildinfo
 
 # Optional npm cache directory
-.npm
+.npm/
 
 # Optional eslint cache
 .eslintcache
@@ -89,59 +99,149 @@ jspm_packages/
 # Yarn Integrity file
 .yarn-integrity
 
-# dotenv environment variables file
-.env.test
-
 # parcel-bundler cache (https://parceljs.org/)
-.cache
-.parcel-cache
+.cache/
+.parcel-cache/
 
 # Next.js build output
-.next
+.next/
 
 # Nuxt.js build / generate output
-.nuxt
+.nuxt/
 
 # Gatsby files
 .cache/
 public/
 
-# Storybook build outputs
-.out
-.storybook-out
+# Vuepress build output
+.vuepress/dist/
+
+# Serverless directories
+.serverless/
+
+# FuseBox cache
+.fusebox/
+
+# DynamoDB Local files
+.dynamodb/
+
+# TernJS port file
+.tern-port
+
+# Stores VSCode versions used for testing VSCode extensions
+.vscode-test/
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
 # Temporary folders
 tmp/
 temp/
-
-# Database files
-*.db
-*.sqlite
-*.sqlite3
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/recommended-extensions.json
-
-# Local database backups
-backups/
-*.backup
+.tmp/
 
 # Test files
 test-results/
 playwright-report/
+test-results.xml
 
-# MacOS
-.DS_Store
+# Documentation
+docs/dist/
+docs/.vitepress/cache/
 
-# Windows
-Thumbs.db
-ehthumbs.db
-Desktop.ini
+# Storybook build outputs
+storybook-static/
 
-# Linux
-*~
+# PWA files
+sw.js.map
+workbox-*.js
+workbox-*.js.map
+
+# Analytics and monitoring
+analytics/
+monitoring/
+metrics/
+
+# Backup files
+backup/
+*.backup
+*.bak
+
+# AI/ML models (if any)
+models/
+*.model
+*.pkl
+*.h5
+
+# User uploads (if any)
+uploads/
+user-content/
+
+# Generated icons and images
+icons/generated/
+screenshots/temp/
+
+# Local development
+.local/
+local.config.js
+
+# Performance testing
+lighthouse-reports/
+performance-reports/
+
+# Security
+security-reports/
+vulnerability-reports/
+
+# CI/CD
+.github/workflows/secrets/
+
+# Package manager locks (choose one)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# Keep essential config files
+!.env.example
+!.gitkeep
+!.gitignore
+
+# Keep documentation assets
+!docs/assets/
+!docs/images/
+
+# Keep essential scripts
+!scripts/
+!scripts/*.sh
+!scripts/*.js
+
+# Keep essential configs
+!*.config.js
+!*.config.ts
+!tsconfig.json
+!package.json
+!README.md
+!LICENSE
+
+# Cloudflare Workers specific
+!wrangler.toml
+!migrations/
+!schema.sql
+
+# PWA specific
+!manifest.json
+!sw.js
+!icons/
+!favicon.ico

@@ -1,471 +1,617 @@
-import { Hono } from 'hono'
-import { sign, verify } from 'hono/jwt'
-import bcrypt from 'bcryptjs'
-import { z } from 'zod'
+/**
+ * Authentication Routes for Cloudflare Workers
+ * Handles login, logout, registration, password reset, and token refresh
+ */
 
-const auth = new Hono()
+import { 
+  authenticateRequest, 
+  generateToken, 
+  verifyToken, 
+  createAuthResponse,
+  SessionManager,
+  checkRateLimit,
+  USER_ROLES
+} from '../middleware/auth.js';
+import bcrypt from 'bcryptjs';
 
-// Validation schemas
-const loginSchema = z.object({
-  email: z.string().email('Invalid email format'),
-  password: z.string().min(6, 'Password must be at least 6 characters')
-})
-
-const registerSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Invalid email format'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-  role: z.enum(['admin', 'cashier', 'staff']).optional().default('staff'),
-  phone: z.string().optional()
-})
-
-const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1, 'Current password is required'),
-  newPassword: z.string().min(6, 'New password must be at least 6 characters')
-})
-
-// Helper functions
+/**
+* Hash password using bcrypt
+* @param {string} password - Plain text password
+* @returns {Promise<string>} Hashed password
+*/
 async function hashPassword(password) {
-  return await bcrypt.hash(password, 12)
+  const saltRounds = 12;
+  return await bcrypt.hash(password, saltRounds);
 }
 
-async function verifyPassword(password, hash) {
-  return await bcrypt.compare(password, hash)
+/**
+* Compare password with hash
+* @param {string} password - Plain text password
+* @param {string} hash - Hashed password
+* @returns {Promise<boolean>} Password matches
+*/
+async function comparePassword(password, hash) {
+  return await bcrypt.compare(password, hash);
 }
 
-async function generateTokens(user, env) {
-  const payload = {
-    id: user.id,
-    email: user.email,
-    role: user.role,
-    name: user.name
+/**
+* Validate email format
+* @param {string} email - Email address
+* @returns {boolean} Is valid email
+*/
+function isValidEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+/**
+* Validate password strength
+* @param {string} password - Password
+* @returns {Object} Validation result
+*/
+function validatePassword(password) {
+  const minLength = 8;
+  const hasUpperCase = /[A-Z]/.test(password);
+  const hasLowerCase = /[a-z]/.test(password);
+  const hasNumbers = /\d/.test(password);
+  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+  
+  const errors = [];
+  
+  if (password.length < minLength) {
+      errors.push(`Password must be at least ${minLength} characters long`);
+  }
+  if (!hasUpperCase) {
+      errors.push('Password must contain at least one uppercase letter');
+  }
+  if (!hasLowerCase) {
+      errors.push('Password must contain at least one lowercase letter');
+  }
+  if (!hasNumbers) {
+      errors.push('Password must contain at least one number');
+  }
+  if (!hasSpecialChar) {
+      errors.push('Password must contain at least one special character');
   }
   
-  const accessToken = await sign(
-    { ...payload, exp: Math.floor(Date.now() / 1000) + (15 * 60) }, // 15 minutes
-    env.JWT_SECRET
-  )
-  
-  const refreshToken = await sign(
-    { ...payload, exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60) }, // 7 days
-    env.JWT_SECRET
-  )
-  
-  return { accessToken, refreshToken }
+  return {
+      isValid: errors.length === 0,
+      errors
+  };
 }
 
-async function logActivity(db, userId, action, details = {}) {
+/**
+* Get user by email or username
+* @param {string} identifier - Email or username
+* @param {Object} env - Environment variables
+* @returns {Promise<Object|null>} User object
+*/
+async function getUserByIdentifier(identifier, env) {
   try {
-    await db.prepare(`
-      INSERT INTO activity_logs (user_id, action, entity_type, entity_id, new_values, created_at)
-      VALUES (?, ?, ?, ?, ?, datetime('now'))
-    `).bind(
-      userId,
-      action,
-      'auth',
-      userId,
-      JSON.stringify(details)
-    ).run()
+      const stmt = env.DB.prepare(`
+          SELECT * FROM users 
+          WHERE (email = ? OR username = ?) AND status = 'active'
+      `);
+      return await stmt.bind(identifier, identifier).first();
   } catch (error) {
-    console.error('Failed to log activity:', error)
+      console.error('Database error in getUserByIdentifier:', error);
+      return null;
   }
 }
 
-// ==========================================
-// PUBLIC ROUTES (No authentication required)
-// ==========================================
-
-// POST /api/auth/login
-auth.post('/login', async (c) => {
+/**
+* Create new user
+* @param {Object} userData - User data
+* @param {Object} env - Environment variables
+* @returns {Promise<Object>} Created user
+*/
+async function createUser(userData, env) {
   try {
-    const body = await c.req.json()
-    const validatedData = loginSchema.parse(body)
-    
-    // Find user by email
-    const user = await c.env.DB.prepare(`
-      SELECT id, email, password_hash, name, role, is_active 
-      FROM users 
-      WHERE email = ? AND is_active = 1
-    `).bind(validatedData.email).first()
-    
-    if (!user) {
-      return c.json({ 
-        error: 'Invalid credentials',
-        code: 'INVALID_CREDENTIALS'
-      }, 401)
-    }
-    
-    // Verify password
-    const isValidPassword = await verifyPassword(validatedData.password, user.password_hash)
-    if (!isValidPassword) {
-      return c.json({ 
-        error: 'Invalid credentials',
-        code: 'INVALID_CREDENTIALS'
-      }, 401)
-    }
-    
-    // Generate tokens
-    const { accessToken, refreshToken } = await generateTokens(user, c.env)
-    
-    // Update last login
-    await c.env.DB.prepare(`
-      UPDATE users 
-      SET last_login = datetime('now'), updated_at = datetime('now')
-      WHERE id = ?
-    `).bind(user.id).run()
-    
-    // Log login activity
-    await logActivity(c.env.DB, user.id, 'login', {
-      ip: c.req.header('CF-Connecting-IP'),
-      userAgent: c.req.header('User-Agent')
-    })
-    
-    // Store refresh token in KV (optional for token blacklisting)
-    await c.env.SESSIONS.put(`refresh_${user.id}`, refreshToken, {
-      expirationTtl: 7 * 24 * 60 * 60 // 7 days
-    })
-    
-    // Return user data without password
-    const userData = {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role
-    }
-    
-    return c.json({
-      success: true,
-      user: userData,
-      accessToken,
-      refreshToken,
-      expiresIn: 15 * 60 // 15 minutes
-    })
-    
+      const userId = crypto.randomUUID();
+      const hashedPassword = await hashPassword(userData.password);
+      
+      const stmt = env.DB.prepare(`
+          INSERT INTO users (
+              id, email, username, password_hash, full_name, 
+              role, status, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, 'active', datetime('now'), datetime('now'))
+      `);
+      
+      await stmt.bind(
+          userId,
+          userData.email,
+          userData.username,
+          hashedPassword,
+          userData.fullName,
+          userData.role || USER_ROLES.STAFF
+      ).run();
+      
+      // Get created user (without password)
+      const user = await env.DB.prepare(`
+          SELECT id, email, username, full_name, role, status, created_at
+          FROM users WHERE id = ?
+      `).bind(userId).first();
+      
+      return user;
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return c.json({
-        error: 'Validation failed',
-        details: error.errors
-      }, 400)
-    }
-    
-    console.error('Login error:', error)
-    return c.json({ 
-      error: 'Internal server error',
-      code: 'INTERNAL_ERROR'
-    }, 500)
+      console.error('Error creating user:', error);
+      throw error;
   }
-})
+}
 
-// POST /api/auth/register (Admin only in production)
-auth.post('/register', async (c) => {
+/**
+* Login endpoint
+* @param {Request} request - HTTP request
+* @param {Object} env - Environment variables
+* @param {Object} ctx - Execution context
+* @returns {Promise<Response>} HTTP response
+*/
+export async function login(request, env, ctx) {
   try {
-    const body = await c.req.json()
-    const validatedData = registerSchema.parse(body)
-    
-    // Check if user already exists
-    const existingUser = await c.env.DB.prepare(`
-      SELECT id FROM users WHERE email = ?
-    `).bind(validatedData.email).first()
-    
-    if (existingUser) {
-      return c.json({ 
-        error: 'User already exists',
-        code: 'USER_EXISTS'
-      }, 409)
-    }
-    
-    // Hash password
-    const passwordHash = await hashPassword(validatedData.password)
-    
-    // Create user
-    const userId = crypto.randomUUID()
-    await c.env.DB.prepare(`
-      INSERT INTO users (id, email, password_hash, name, role, phone, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-    `).bind(
-      userId,
-      validatedData.email,
-      passwordHash,
-      validatedData.name,
-      validatedData.role,
-      validatedData.phone || null
-    ).run()
-    
-    // Initialize staff stats
-    await c.env.DB.prepare(`
-      INSERT INTO staff_stats (user_id, created_at, updated_at)
-      VALUES (?, datetime('now'), datetime('now'))
-    `).bind(userId).run()
-    
-    // Log registration activity
-    await logActivity(c.env.DB, userId, 'register', {
-      role: validatedData.role
-    })
-    
-    // Get created user
-    const newUser = await c.env.DB.prepare(`
-      SELECT id, email, name, role FROM users WHERE id = ?
-    `).bind(userId).first()
-    
-    return c.json({
-      success: true,
-      message: 'User registered successfully',
-      user: newUser
-    }, 201)
-    
+      const body = await request.json();
+      const { identifier, password, deviceInfo = '' } = body;
+      
+      // Input validation
+      if (!identifier || !password) {
+          return createAuthResponse(false, 'Email/username and password are required', null, 400);
+      }
+      
+      // Rate limiting
+      const rateLimitKey = `login_attempts:${identifier}`;
+      if (!(await checkRateLimit(rateLimitKey, env, 5))) {
+          return createAuthResponse(false, 'Too many login attempts. Please try again later.', null, 429);
+      }
+      
+      // Get user
+      const user = await getUserByIdentifier(identifier, env);
+      if (!user) {
+          return createAuthResponse(false, 'Invalid credentials', null, 401);
+      }
+      
+      // Verify password
+      const isValidPassword = await comparePassword(password, user.password_hash);
+      if (!isValidPassword) {
+          return createAuthResponse(false, 'Invalid credentials', null, 401);
+      }
+      
+      // Check user status
+      if (user.status !== 'active') {
+          return createAuthResponse(false, 'Account is not active', null, 401);
+      }
+      
+      // Create session
+      const sessionManager = new SessionManager(env);
+      const sessionId = await sessionManager.createSession(user.id, deviceInfo);
+      
+      // Generate tokens
+      const tokenPayload = {
+          userId: user.id,
+          email: user.email,
+          role: user.role,
+          sessionId
+      };
+      
+      const accessToken = await generateToken(tokenPayload, env.JWT_SECRET, 'access');
+      const refreshToken = await generateToken(tokenPayload, env.JWT_SECRET, 'refresh');
+      
+      // Update last login
+      await env.DB.prepare(`
+          UPDATE users SET last_login = datetime('now') WHERE id = ?
+      `).bind(user.id).run();
+      
+      // Response data
+      const responseData = {
+          user: {
+              id: user.id,
+              email: user.email,
+              username: user.username,
+              fullName: user.full_name,
+              role: user.role,
+              status: user.status,
+              lastLogin: user.last_login,
+              createdAt: user.created_at
+          },
+          tokens: {
+              accessToken,
+              refreshToken,
+              expiresIn: 24 * 60 * 60 // 24 hours in seconds
+          },
+          sessionId
+      };
+      
+      return createAuthResponse(true, 'Login successful', responseData);
+      
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return c.json({
-        error: 'Validation failed',
-        details: error.errors
-      }, 400)
-    }
-    
-    console.error('Registration error:', error)
-    return c.json({ 
-      error: 'Internal server error',
-      code: 'INTERNAL_ERROR'
-    }, 500)
+      console.error('Login error:', error);
+      return createAuthResponse(false, 'Internal server error', null, 500);
   }
-})
+}
 
-// POST /api/auth/refresh
-auth.post('/refresh', async (c) => {
+/**
+* Logout endpoint
+* @param {Request} request - HTTP request
+* @param {Object} env - Environment variables
+* @param {Object} ctx - Execution context
+* @returns {Promise<Response>} HTTP response
+*/
+export async function logout(request, env, ctx) {
   try {
-    const { refreshToken } = await c.req.json()
-    
-    if (!refreshToken) {
-      return c.json({ 
-        error: 'Refresh token required',
-        code: 'TOKEN_REQUIRED'
-      }, 400)
-    }
-    
-    // Verify refresh token
-    const payload = await verify(refreshToken, c.env.JWT_SECRET)
-    
-    // Check if user still exists and is active
-    const user = await c.env.DB.prepare(`
-      SELECT id, email, name, role, is_active FROM users 
-      WHERE id = ? AND is_active = 1
-    `).bind(payload.id).first()
-    
-    if (!user) {
-      return c.json({ 
-        error: 'Invalid refresh token',
-        code: 'INVALID_TOKEN'
-      }, 401)
-    }
-    
-    // Generate new tokens
-    const { accessToken, refreshToken: newRefreshToken } = await generateTokens(user, c.env)
-    
-    // Update refresh token in KV
-    await c.env.SESSIONS.put(`refresh_${user.id}`, newRefreshToken, {
-      expirationTtl: 7 * 24 * 60 * 60 // 7 days
-    })
-    
-    return c.json({
-      success: true,
-      accessToken,
-      refreshToken: newRefreshToken,
-      expiresIn: 15 * 60 // 15 minutes
-    })
-    
+      const auth = await authenticateRequest(request, env, ctx);
+      
+      if (!auth.success) {
+          return createAuthResponse(false, auth.error, null, auth.status);
+      }
+      
+      // Invalidate session
+      const sessionManager = new SessionManager(env);
+      if (auth.user.sessionId) {
+          await sessionManager.invalidateSession(auth.user.sessionId);
+      }
+      
+      return createAuthResponse(true, 'Logout successful');
+      
   } catch (error) {
-    console.error('Token refresh error:', error)
-    return c.json({ 
-      error: 'Invalid refresh token',
-      code: 'INVALID_TOKEN'
-    }, 401)
+      console.error('Logout error:', error);
+      return createAuthResponse(false, 'Internal server error', null, 500);
   }
-})
+}
 
-// POST /api/auth/logout
-auth.post('/logout', async (c) => {
+/**
+* Refresh token endpoint
+* @param {Request} request - HTTP request
+* @param {Object} env - Environment variables
+* @param {Object} ctx - Execution context
+* @returns {Promise<Response>} HTTP response
+*/
+export async function refreshToken(request, env, ctx) {
   try {
-    const authHeader = c.req.header('Authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return c.json({ success: true, message: 'Logged out successfully' })
-    }
-    
-    const token = authHeader.substring(7)
-    const payload = await verify(token, c.env.JWT_SECRET)
-    
-    // Remove refresh token from KV
-    await c.env.SESSIONS.delete(`refresh_${payload.id}`)
-    
-    // Log logout activity
-    await logActivity(c.env.DB, payload.id, 'logout')
-    
-    return c.json({ 
-      success: true, 
-      message: 'Logged out successfully' 
-    })
-    
+      const body = await request.json();
+      const { refreshToken } = body;
+      
+      if (!refreshToken) {
+          return createAuthResponse(false, 'Refresh token is required', null, 400);
+      }
+      
+      // Verify refresh token
+      const payload = await verifyToken(refreshToken, env.JWT_SECRET);
+      if (!payload || payload.type !== 'refresh') {
+          return createAuthResponse(false, 'Invalid refresh token', null, 401);
+      }
+      
+      // Get user
+      const user = await env.DB.prepare(`
+          SELECT id, email, username, full_name, role, status 
+          FROM users WHERE id = ? AND status = 'active'
+      `).bind(payload.userId).first();
+      
+      if (!user) {
+          return createAuthResponse(false, 'User not found', null, 401);
+      }
+      
+      // Generate new access token
+      const tokenPayload = {
+          userId: user.id,
+          email: user.email,
+          role: user.role,
+          sessionId: payload.sessionId
+      };
+      
+      const newAccessToken = await generateToken(tokenPayload, env.JWT_SECRET, 'access');
+      
+      const responseData = {
+          accessToken: newAccessToken,
+          expiresIn: 24 * 60 * 60 // 24 hours in seconds
+      };
+      
+      return createAuthResponse(true, 'Token refreshed successfully', responseData);
+      
   } catch (error) {
-    // Even if token verification fails, we consider logout successful
-    return c.json({ 
-      success: true, 
-      message: 'Logged out successfully' 
-    })
+      console.error('Refresh token error:', error);
+      return createAuthResponse(false, 'Internal server error', null, 500);
   }
-})
+}
 
-// ==========================================
-// PROTECTED ROUTES (Require authentication)
-// ==========================================
-
-// GET /api/auth/me
-auth.get('/me', async (c) => {
+/**
+* Register endpoint
+* @param {Request} request - HTTP request
+* @param {Object} env - Environment variables
+* @param {Object} ctx - Execution context
+* @returns {Promise<Response>} HTTP response
+*/
+export async function register(request, env, ctx) {
   try {
-    const user = c.get('user') // Set by auth middleware
-    
-    // Get user with stats
-    const userWithStats = await c.env.DB.prepare(`
-      SELECT 
-        u.id, u.email, u.name, u.role, u.phone, u.avatar_url, u.last_login,
-        s.total_sales, s.total_orders, s.total_points, s.level, s.current_streak
-      FROM users u
-      LEFT JOIN staff_stats s ON u.id = s.user_id
-      WHERE u.id = ? AND u.is_active = 1
-    `).bind(user.id).first()
-    
-    if (!userWithStats) {
-      return c.json({ 
-        error: 'User not found',
-        code: 'USER_NOT_FOUND'
-      }, 404)
-    }
-    
-    return c.json({
-      success: true,
-      user: userWithStats
-    })
-    
+      const body = await request.json();
+      const { email, username, password, fullName, role } = body;
+      
+      // Input validation
+      if (!email || !username || !password || !fullName) {
+          return createAuthResponse(false, 'All fields are required', null, 400);
+      }
+      
+      if (!isValidEmail(email)) {
+          return createAuthResponse(false, 'Invalid email format', null, 400);
+      }
+      
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.isValid) {
+          return createAuthResponse(false, 'Password validation failed', {
+              errors: passwordValidation.errors
+          }, 400);
+      }
+      
+      // Check if user already exists
+      const existingUser = await getUserByIdentifier(email, env);
+      if (existingUser) {
+          return createAuthResponse(false, 'User already exists', null, 409);
+      }
+      
+      const existingUsername = await getUserByIdentifier(username, env);
+      if (existingUsername) {
+          return createAuthResponse(false, 'Username already taken', null, 409);
+      }
+      
+      // Create user
+      const userData = {
+          email,
+          username,
+          password,
+          fullName,
+          role: role || USER_ROLES.STAFF
+      };
+      
+      const newUser = await createUser(userData, env);
+      
+      return createAuthResponse(true, 'User registered successfully', {
+          user: newUser
+      }, 201);
+      
   } catch (error) {
-    console.error('Get user error:', error)
-    return c.json({ 
-      error: 'Internal server error',
-      code: 'INTERNAL_ERROR'
-    }, 500)
+      console.error('Registration error:', error);
+      return createAuthResponse(false, 'Internal server error', null, 500);
   }
-})
+}
 
-// PUT /api/auth/profile
-auth.put('/profile', async (c) => {
+/**
+* Get current user endpoint
+* @param {Request} request - HTTP request
+* @param {Object} env - Environment variables
+* @param {Object} ctx - Execution context
+* @returns {Promise<Response>} HTTP response
+*/
+export async function getCurrentUser(request, env, ctx) {
   try {
-    const user = c.get('user')
-    const { name, phone } = await c.req.json()
-    
-    // Validate input
-    if (!name || name.trim().length < 2) {
-      return c.json({ 
-        error: 'Name must be at least 2 characters',
-        code: 'VALIDATION_ERROR'
-      }, 400)
-    }
-    
-    // Update user profile
-    await c.env.DB.prepare(`
-      UPDATE users 
-      SET name = ?, phone = ?, updated_at = datetime('now')
-      WHERE id = ?
-    `).bind(name.trim(), phone || null, user.id).run()
-    
-    // Log profile update
-    await logActivity(c.env.DB, user.id, 'profile_update', {
-      changes: { name, phone }
-    })
-    
-    // Get updated user
-    const updatedUser = await c.env.DB.prepare(`
-      SELECT id, email, name, role, phone, avatar_url FROM users WHERE id = ?
-    `).bind(user.id).first()
-    
-    return c.json({
-      success: true,
-      message: 'Profile updated successfully',
-      user: updatedUser
-    })
-    
+      const auth = await authenticateRequest(request, env, ctx);
+      
+      if (!auth.success) {
+          return createAuthResponse(false, auth.error, null, auth.status);
+      }
+      
+      return createAuthResponse(true, 'User retrieved successfully', {
+          user: auth.user
+      });
+      
   } catch (error) {
-    console.error('Profile update error:', error)
-    return c.json({ 
-      error: 'Internal server error',
-      code: 'INTERNAL_ERROR'
-    }, 500)
+      console.error('Get current user error:', error);
+      return createAuthResponse(false, 'Internal server error', null, 500);
   }
-})
+}
 
-// PUT /api/auth/change-password
-auth.put('/change-password', async (c) => {
+/**
+* Change password endpoint
+* @param {Request} request - HTTP request
+* @param {Object} env - Environment variables
+* @param {Object} ctx - Execution context
+* @returns {Promise<Response>} HTTP response
+*/
+export async function changePassword(request, env, ctx) {
   try {
-    const user = c.get('user')
-    const body = await c.req.json()
-    const validatedData = changePasswordSchema.parse(body)
-    
-    // Get current user with password
-    const currentUser = await c.env.DB.prepare(`
-      SELECT password_hash FROM users WHERE id = ?
-    `).bind(user.id).first()
-    
-    if (!currentUser) {
-      return c.json({ 
-        error: 'User not found',
-        code: 'USER_NOT_FOUND'
-      }, 404)
-    }
-    
-    // Verify current password
-    const isValidPassword = await verifyPassword(
-      validatedData.currentPassword, 
-      currentUser.password_hash
-    )
-    
-    if (!isValidPassword) {
-      return c.json({ 
-        error: 'Current password is incorrect',
-        code: 'INVALID_PASSWORD'
-      }, 400)
-    }
-    
-    // Hash new password
-    const newPasswordHash = await hashPassword(validatedData.newPassword)
-    
-    // Update password
-    await c.env.DB.prepare(`
-      UPDATE users 
-      SET password_hash = ?, updated_at = datetime('now')
-      WHERE id = ?
-    `).bind(newPasswordHash, user.id).run()
-    
-    // Invalidate all refresh tokens for this user
-    await c.env.SESSIONS.delete(`refresh_${user.id}`)
-    
-    // Log password change
-    await logActivity(c.env.DB, user.id, 'password_change')
-    
-    return c.json({
-      success: true,
-      message: 'Password changed successfully'
-    })
-    
+      const auth = await authenticateRequest(request, env, ctx);
+      
+      if (!auth.success) {
+          return createAuthResponse(false, auth.error, null, auth.status);
+      }
+      
+      const body = await request.json();
+      const { currentPassword, newPassword } = body;
+      
+      if (!currentPassword || !newPassword) {
+          return createAuthResponse(false, 'Current and new passwords are required', null, 400);
+      }
+      
+      const passwordValidation = validatePassword(newPassword);
+      if (!passwordValidation.isValid) {
+          return createAuthResponse(false, 'Password validation failed', {
+              errors: passwordValidation.errors
+          }, 400);
+      }
+      
+      // Get user with password hash
+      const user = await env.DB.prepare(`
+          SELECT * FROM users WHERE id = ?
+      `).bind(auth.user.id).first();
+      
+      if (!user) {
+          return createAuthResponse(false, 'User not found', null, 404);
+      }
+      
+      // Verify current password
+      const isValidPassword = await comparePassword(currentPassword, user.password_hash);
+      if (!isValidPassword) {
+          return createAuthResponse(false, 'Current password is incorrect', null, 400);
+      }
+      
+      // Hash new password
+      const newPasswordHash = await hashPassword(newPassword);
+      
+      // Update password
+      await env.DB.prepare(`
+          UPDATE users 
+          SET password_hash = ?, updated_at = datetime('now')
+          WHERE id = ?
+      `).bind(newPasswordHash, auth.user.id).run();
+      
+      // Invalidate all sessions except current
+      await env.DB.prepare(`
+          UPDATE user_sessions 
+          SET is_active = 0, invalidated_at = datetime('now')
+          WHERE user_id = ? AND id != ?
+      `).bind(auth.user.id, auth.user.sessionId).run();
+      
+      return createAuthResponse(true, 'Password changed successfully');
+      
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return c.json({
-        error: 'Validation failed',
-        details: error.errors
-      }, 400)
-    }
-    
-    console.error('Password change error:', error)
-    return c.json({ 
-      error: 'Internal server error',
-      code: 'INTERNAL_ERROR'
-    }, 500)
+      console.error('Change password error:', error);
+      return createAuthResponse(false, 'Internal server error', null, 500);
   }
-})
+}
 
-export default auth
+/**
+* Forgot password endpoint
+* @param {Request} request - HTTP request
+* @param {Object} env - Environment variables
+* @param {Object} ctx - Execution context
+* @returns {Promise<Response>} HTTP response
+*/
+export async function forgotPassword(request, env, ctx) {
+  try {
+      const body = await request.json();
+      const { email } = body;
+      
+      if (!email || !isValidEmail(email)) {
+          return createAuthResponse(false, 'Valid email is required', null, 400);
+      }
+      
+      // Rate limiting
+      const rateLimitKey = `forgot_password:${email}`;
+      if (!(await checkRateLimit(rateLimitKey, env, 3))) {
+          return createAuthResponse(false, 'Too many reset requests. Please try again later.', null, 429);
+      }
+      
+      const user = await getUserByIdentifier(email, env);
+      if (!user) {
+          // Don't reveal if user exists or not
+          return createAuthResponse(true, 'If the email exists, a reset link has been sent');
+      }
+      
+      // Generate reset token
+      const resetToken = crypto.randomUUID();
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+      
+      // Store reset token
+      await env.DB.prepare(`
+          INSERT OR REPLACE INTO password_resets (user_id, token, expires_at, created_at)
+          VALUES (?, ?, ?, datetime('now'))
+      `).bind(user.id, resetToken, expiresAt.toISOString()).run();
+      
+      // TODO: Send email with reset link
+      // For now, we'll just log it (in production, implement email service)
+      console.log(`Password reset link for ${email}: /reset-password?token=${resetToken}`);
+      
+      return createAuthResponse(true, 'If the email exists, a reset link has been sent');
+      
+  } catch (error) {
+      console.error('Forgot password error:', error);
+      return createAuthResponse(false, 'Internal server error', null, 500);
+  }
+}
+
+/**
+* Reset password endpoint
+* @param {Request} request - HTTP request
+* @param {Object} env - Environment variables
+* @param {Object} ctx - Execution context
+* @returns {Promise<Response>} HTTP response
+*/
+export async function resetPassword(request, env, ctx) {
+  try {
+      const body = await request.json();
+      const { token, newPassword } = body;
+      
+      if (!token || !newPassword) {
+          return createAuthResponse(false, 'Token and new password are required', null, 400);
+      }
+      
+      const passwordValidation = validatePassword(newPassword);
+      if (!passwordValidation.isValid) {
+          return createAuthResponse(false, 'Password validation failed', {
+              errors: passwordValidation.errors
+          }, 400);
+      }
+      
+      // Verify reset token
+      const resetRequest = await env.DB.prepare(`
+          SELECT pr.*, u.id as user_id, u.email
+          FROM password_resets pr
+          JOIN users u ON pr.user_id = u.id
+          WHERE pr.token = ? AND pr.expires_at > datetime('now') AND pr.used_at IS NULL
+      `).bind(token).first();
+      
+      if (!resetRequest) {
+          return createAuthResponse(false, 'Invalid or expired reset token', null, 400);
+      }
+      
+      // Hash new password
+      const newPasswordHash = await hashPassword(newPassword);
+      
+      // Update password
+      await env.DB.prepare(`
+          UPDATE users 
+          SET password_hash = ?, updated_at = datetime('now')
+          WHERE id = ?
+      `).bind(newPasswordHash, resetRequest.user_id).run();
+      
+      // Mark reset token as used
+      await env.DB.prepare(`
+          UPDATE password_resets 
+          SET used_at = datetime('now')
+          WHERE token = ?
+      `).bind(token).run();
+      
+      // Invalidate all user sessions
+      await env.DB.prepare(`
+          UPDATE user_sessions 
+          SET is_active = 0, invalidated_at = datetime('now')
+          WHERE user_id = ?
+      `).bind(resetRequest.user_id).run();
+      
+      return createAuthResponse(true, 'Password reset successful');
+      
+  } catch (error) {
+      console.error('Reset password error:', error);
+      return createAuthResponse(false, 'Internal server error', null, 500);
+  }
+}
+
+/**
+* Auth routes handler
+* @param {Request} request - HTTP request
+* @param {Object} env - Environment variables
+* @param {Object} ctx - Execution context
+* @returns {Promise<Response>} HTTP response
+*/
+export async function handleAuthRoutes(request, env, ctx) {
+  const url = new URL(request.url);
+  const method = request.method;
+  const path = url.pathname;
+  
+  // Route mapping
+  const routes = {
+      'POST:/auth/login': login,
+      'POST:/auth/logout': logout,
+      'POST:/auth/refresh': refreshToken,
+      'POST:/auth/register': register,
+      'GET:/auth/me': getCurrentUser,
+      'PUT:/auth/change-password': changePassword,
+      'POST:/auth/forgot-password': forgotPassword,
+      'POST:/auth/reset-password': resetPassword
+  };
+  
+  const routeKey = `${method}:${path}`;
+  const handler = routes[routeKey];
+  
+  if (handler) {
+      return await handler(request, env, ctx);
+  }
+  
+  return createAuthResponse(false, 'Route not found', null, 404);
+}

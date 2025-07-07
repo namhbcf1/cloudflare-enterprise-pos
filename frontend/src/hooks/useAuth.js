@@ -310,7 +310,10 @@ export const useAuthGuard = (requiredRole = null, requiredPermissions = []) => {
 /**
  * Default export
  */
-export default useAuth;Auth Hook - Quản lý trạng thái xác thực và phân quyền
+export default useAuth;
+
+/**
+ * useAuth Hook - Quản lý trạng thái xác thực và phân quyền
  */
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -397,6 +400,3 @@ export const usePermissions = () => {
     checkBusinessRule: (rule, value) => checkBusinessRule(user, rule, value)
   };
 };
-
-/**
- * use

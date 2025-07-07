@@ -1,0 +1,565 @@
+name: Deploy Cloudflare Enterprise POS
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+      - develop
+  pull_request:
+    branches:
+      - main
+      - staging
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '18'
+  PNPM_VERSION: '8'
+
+jobs:
+  # Quality checks
+  lint-and-test:
+    name: Lint and Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint frontend
+        run: |
+          cd frontend
+          pnpm run lint
+
+      - name: Lint backend
+        run: |
+          cd backend
+          pnpm run lint
+
+      - name: Type check frontend
+        run: |
+          cd frontend
+          pnpm run type-check
+
+      - name: Test frontend
+        run: |
+          cd frontend
+          pnpm run test:coverage
+        env:
+          CI: true
+
+      - name: Test backend
+        run: |
+          cd backend
+          pnpm run test:coverage
+        env:
+          CI: true
+
+      - name: Upload frontend coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./frontend/coverage/lcov.info
+          flags: frontend
+          name: frontend-coverage
+
+      - name: Upload backend coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./backend/coverage/lcov.info
+          flags: backend
+          name: backend-coverage
+
+  # Security scanning
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run npm audit
+        run: |
+          cd frontend && pnpm audit --audit-level high
+          cd ../backend && pnpm audit --audit-level high
+
+      - name: OWASP Dependency Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: 'cloudflare-enterprise-pos'
+          path: '.'
+          format: 'ALL'
+
+      - name: Upload OWASP results
+        uses: actions/upload-artifact@v3
+        with:
+          name: dependency-check-report
+          path: reports/
+
+  # Build and validate
+  build:
+    name: Build Applications
+    runs-on: ubuntu-latest
+    needs: [lint-and-test]
+    strategy:
+      matrix:
+        environment: [development, staging, production]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          cp .env.${{ matrix.environment }} .env.production
+          pnpm run build
+        env:
+          NODE_ENV: production
+          VITE_ENV: ${{ matrix.environment }}
+
+      - name: Build backend
+        run: |
+          cd backend
+          pnpm run build
+
+      - name: Upload frontend build
+        uses: actions/upload-artifact@v3
+        with:
+          name: frontend-build-${{ matrix.environment }}
+          path: frontend/dist/
+          retention-days: 30
+
+      - name: Upload backend build
+        uses: actions/upload-artifact@v3
+        with:
+          name: backend-build-${{ matrix.environment }}
+          path: backend/dist/
+          retention-days: 30
+
+  # Database migrations
+  database-migrate:
+    name: Database Migration
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging'
+    strategy:
+      matrix:
+        environment: [staging, production]
+        exclude:
+          - environment: production
+            condition: ${{ github.ref != 'refs/heads/main' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Wrangler
+        run: npm install -g wrangler@latest
+
+      - name: Authenticate Wrangler
+        run: echo "${{ secrets.CLOUDFLARE_API_TOKEN }}" | wrangler auth api-token
+
+      - name: Run database migrations
+        run: |
+          cd backend
+          wrangler d1 migrations apply cloudflare-pos-${{ matrix.environment }} --env ${{ matrix.environment }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      - name: Seed database (staging only)
+        if: matrix.environment == 'staging'
+        run: |
+          cd backend
+          wrangler d1 execute cloudflare-pos-staging --file=./src/database/seeds/demo-data.sql --env staging
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+  # Deploy backend to Cloudflare Workers
+  deploy-backend:
+    name: Deploy Backend
+    runs-on: ubuntu-latest
+    needs: [build, security-scan, database-migrate]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging' || github.ref == 'refs/heads/develop'
+    strategy:
+      matrix:
+        include:
+          - branch: develop
+            environment: development
+          - branch: staging
+            environment: staging
+          - branch: main
+            environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download backend build
+        uses: actions/download-artifact@v3
+        with:
+          name: backend-build-${{ matrix.environment }}
+          path: backend/dist/
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Wrangler
+        run: npm install -g wrangler@latest
+
+      - name: Authenticate Wrangler
+        run: echo "${{ secrets.CLOUDFLARE_API_TOKEN }}" | wrangler auth api-token
+
+      - name: Deploy to Cloudflare Workers
+        run: |
+          cd backend
+          wrangler deploy --env ${{ matrix.environment }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Update worker secrets
+        run: |
+          cd backend
+          echo "${{ secrets.JWT_SECRET }}" | wrangler secret put JWT_SECRET --env ${{ matrix.environment }}
+          echo "${{ secrets.DATABASE_ENCRYPTION_KEY }}" | wrangler secret put DATABASE_ENCRYPTION_KEY --env ${{ matrix.environment }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      - name: Run post-deployment tests
+        run: |
+          sleep 30  # Wait for deployment to propagate
+          curl -f https://your-api-${{ matrix.environment }}.your-subdomain.workers.dev/health || exit 1
+
+  # Deploy frontend to Cloudflare Pages
+  deploy-frontend:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    needs: [build, deploy-backend]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging' || github.ref == 'refs/heads/develop'
+    strategy:
+      matrix:
+        include:
+          - branch: develop
+            environment: development
+            project_name: cloudflare-pos-dev
+          - branch: staging
+            environment: staging
+            project_name: cloudflare-pos-staging
+          - branch: main
+            environment: production
+            project_name: cloudflare-pos-production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download frontend build
+        uses: actions/download-artifact@v3
+        with:
+          name: frontend-build-${{ matrix.environment }}
+          path: frontend/dist/
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: ${{ matrix.project_name }}
+          directory: frontend/dist
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Pages environment variables
+        run: |
+          curl -X PATCH "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT_ID }}/pages/projects/${{ matrix.project_name }}" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --data '{
+              "deployment_configs": {
+                "production": {
+                  "env_vars": {
+                    "VITE_API_BASE_URL": {
+                      "value": "https://your-api-${{ matrix.environment }}.your-subdomain.workers.dev"
+                    },
+                    "VITE_ENV": {
+                      "value": "${{ matrix.environment }}"
+                    }
+                  }
+                }
+              }
+            }'
+
+      - name: Run frontend smoke tests
+        run: |
+          sleep 60  # Wait for Pages deployment
+          curl -f https://${{ matrix.project_name }}.pages.dev/ || exit 1
+
+  # Performance testing
+  performance-test:
+    name: Performance Testing
+    runs-on: ubuntu-latest
+    needs: [deploy-frontend, deploy-backend]
+    if: github.ref == 'refs/heads/staging' || github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Lighthouse CI
+        run: npm install -g @lhci/cli@0.12.x
+
+      - name: Run Lighthouse CI
+        run: |
+          lhci autorun
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+          LHCI_SERVER_URL: ${{ secrets.LHCI_SERVER_URL }}
+          LHCI_BUILD_CONTEXT__GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run load testing
+        run: |
+          npx artillery quick --count 10 --num 50 https://your-api-staging.your-subdomain.workers.dev/health
+
+  # E2E testing
+  e2e-test:
+    name: End-to-End Testing
+    runs-on: ubuntu-latest
+    needs: [deploy-frontend, deploy-backend]
+    if: github.ref == 'refs/heads/staging' || github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          cd e2e-tests
+          pnpm install
+
+      - name: Install Playwright browsers
+        run: |
+          cd e2e-tests
+          npx playwright install --with-deps
+
+      - name: Run E2E tests
+        run: |
+          cd e2e-tests
+          pnpm run test
+        env:
+          BASE_URL: https://cloudflare-pos-staging.pages.dev
+          API_URL: https://your-api-staging.your-subdomain.workers.dev
+
+      - name: Upload E2E test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: e2e-test-results
+          path: e2e-tests/test-results/
+
+  # Security and compliance verification
+  security-verify:
+    name: Security Verification
+    runs-on: ubuntu-latest
+    needs: [deploy-frontend, deploy-backend]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run OWASP ZAP security scan
+        uses: zaproxy/action-full-scan@v0.7.0
+        with:
+          target: 'https://cloudflare-pos-production.pages.dev'
+          rules_file_name: '.zap/rules.tsv'
+          cmd_options: '-a'
+
+      - name: SSL Labs test
+        run: |
+          curl -s "https://api.ssllabs.com/api/v3/analyze?host=cloudflare-pos-production.pages.dev&publish=off&startNew=on&all=done&ignoreMismatch=on" | jq -r '.status'
+
+      - name: Security headers check
+        run: |
+          curl -I https://cloudflare-pos-production.pages.dev | grep -E "(X-Content-Type-Options|X-Frame-Options|Content-Security-Policy)"
+
+  # Notification and rollback
+  notify-deployment:
+    name: Deployment Notification
+    runs-on: ubuntu-latest
+    needs: [deploy-frontend, deploy-backend, e2e-test, performance-test]
+    if: always()
+    steps:
+      - name: Get deployment status
+        id: deployment-status
+        run: |
+          if [[ "${{ needs.deploy-frontend.result }}" == "success" && "${{ needs.deploy-backend.result }}" == "success" ]]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "message=✅ Deployment successful" >> $GITHUB_OUTPUT
+          else
+            echo "status=failure" >> $GITHUB_OUTPUT
+            echo "message=❌ Deployment failed" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Notify Slack
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ steps.deployment-status.outputs.status }}
+          channel: '#deployments'
+          message: |
+            ${{ steps.deployment-status.outputs.message }}
+            Branch: ${{ github.ref }}
+            Commit: ${{ github.sha }}
+            Author: ${{ github.actor }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Create GitHub release (production only)
+        if: github.ref == 'refs/heads/main' && steps.deployment-status.outputs.status == 'success'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ github.run_number }}
+          release_name: Release v${{ github.run_number }}
+          body: |
+            ## Changes in this Release
+            ${{ github.event.head_commit.message }}
+            
+            ## Deployment URLs
+            - Frontend: https://cloudflare-pos-production.pages.dev
+            - Backend: https://your-api-production.your-subdomain.workers.dev
+            
+            ## Performance Metrics
+            - Build Time: ${{ github.event.workflow_run.run_duration_ms }}ms
+            - Tests Passed: ✅
+            - Security Scan: ✅
+          draft: false
+          prerelease: false
+
+  # Rollback capability
+  rollback:
+    name: Rollback Deployment
+    runs-on: ubuntu-latest
+    if: failure() && github.ref == 'refs/heads/main'
+    needs: [deploy-frontend, deploy-backend]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Wrangler
+        run: npm install -g wrangler@latest
+
+      - name: Authenticate Wrangler
+        run: echo "${{ secrets.CLOUDFLARE_API_TOKEN }}" | wrangler auth api-token
+
+      - name: Rollback Workers deployment
+        run: |
+          cd backend
+          wrangler rollback --env production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      - name: Rollback Pages deployment
+        run: |
+          curl -X POST "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT_ID }}/pages/projects/cloudflare-pos-production/deployments/${{ secrets.PREVIOUS_DEPLOYMENT_ID }}/rollback" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}"
+
+      - name: Notify rollback
+        uses: 8398a7/action-slack@v3
+        with:
+          status: 'warning'
+          channel: '#deployments'
+          message: |
+            🔄 Automatic rollback initiated
+            Branch: ${{ github.ref }}
+            Reason: Deployment failure detected
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
